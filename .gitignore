@@ -1,0 +1,17 @@
+.gradle/
+.kotlin/
+build/
+!gradle/wrapper/gradle-wrapper.jar
+
+# Local review-agent notes
+.claude/agent-memory-local/
+
+# IDE
+.idea/
+*.iml
+out/
+.vscode/
+.classpath
+.project
+.settings/
+bin/
