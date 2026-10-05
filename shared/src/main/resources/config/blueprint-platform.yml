@@ -1,0 +1,40 @@
+# Platform defaults every module runs with — in production AND in each
+# module's isolated tests. Loaded by PlatformDefaultsEnvironmentPostProcessor
+# with the lowest precedence: :app's application.yml, profiles, environment
+# variables and test properties all override these values.
+
+spring:
+  threads:
+    virtual:
+      enabled: true
+
+  jpa:
+    # Never hold a connection open while a view renders; load what you need in
+    # the use case.
+    open-in-view: false
+    hibernate:
+      # Flyway owns the schema; Hibernate only checks that the mapping matches.
+      ddl-auto: validate
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: UTC
+
+  flyway:
+    # Scans every jar: each module ships its own scripts under
+    # db/migration/<module>/ and owns its own database schema.
+    locations: classpath:db/migration
+
+  data:
+    web:
+      pageable:
+        # Out-of-range values are clamped, never rejected: page < 0 → 0,
+        # size < 1 → the endpoint's default, size > 100 → 100.
+        max-page-size: 100
+
+  modulith:
+    events:
+      # Completed publications are removed; incomplete ones stay until their
+      # listener succeeds. Use "archive" to keep an audit trail instead
+      # (event_publication_archive is already migrated).
+      completion-mode: delete
