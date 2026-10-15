@@ -1,0 +1,15 @@
+# Local development database. `./gradlew :app:bootRun` starts it automatically
+# (spring-boot-docker-compose) and points the DataSource at it. The host port
+# is random to avoid clashing with a local PostgreSQL; `docker compose ps`
+# shows it. Keep the image in sync with database-image in
+# gradle/libs.versions.toml, which the tests use. This file is one of the
+# database-vendor spots listed in docs/architecture.md.
+services:
+  postgres:
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_DB: blueprint
+      POSTGRES_USER: blueprint
+      POSTGRES_PASSWORD: blueprint
+    ports:
+      - "5432"

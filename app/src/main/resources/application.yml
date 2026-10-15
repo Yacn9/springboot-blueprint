@@ -1,0 +1,12 @@
+# Deployment-specific settings. Platform defaults (JPA, Flyway, paging, event
+# registry) come from :shared's config/blueprint-platform.yml at the lowest
+# precedence — override any of them here.
+spring:
+  application:
+    name: modular-monolith-blueprint
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health, info, modulith
