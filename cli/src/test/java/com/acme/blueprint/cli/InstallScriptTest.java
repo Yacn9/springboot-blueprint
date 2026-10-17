@@ -30,6 +30,7 @@ class InstallScriptTest {
     /** Skips JBang's options, then runs {@code <jar> <args…>} with the test's Java. */
     private static final String FAKE_JBANG = """
             #!/bin/sh
+            [ "$1" = trust ] && exit 0
             printf '%s\\n' "$*" > "$JBANG_ARGS"
             while [ "${1#-}" != "$1" ]; do
               case "$1" in --java) shift 2 ;; *) shift ;; esac

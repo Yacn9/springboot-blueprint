@@ -58,12 +58,14 @@ usage errors add a pointer to `--help`.
 
 1. installs [JBang](https://www.jbang.dev) into `~/.jbang` when `jbang` is not
    found (its installer also adds it to your shell's PATH);
-2. runs `jbang --fresh blueprint@Yacn9/springboot-blueprint new` with your
+2. trusts `https://github.com/Yacn9/springboot-blueprint/` in JBang, which would
+   otherwise ask first — the script already comes from there;
+3. runs `jbang --fresh blueprint@Yacn9/springboot-blueprint new` with your
    arguments. The alias lives in [`jbang-catalog.json`](../jbang-catalog.json)
    and points at the latest release's `blueprint-cli.jar`; JBang downloads a
    JDK 17+ first if none is installed, and `--fresh` makes every run use the
    newest release;
-3. when piped (`curl … | sh`), reads the name prompt from the terminal, since
+4. when piped (`curl … | sh`), reads the name prompt from the terminal, since
    standard input is the script itself.
 
 | Setting | Effect |

@@ -33,6 +33,10 @@ if ! command -v jbang >/dev/null 2>&1; then
   fi
 fi
 
+# JBang asks (in a pop-up on desktops) before running anything from an unknown URL.
+# This script already comes from the repository, so trusting it grants nothing new.
+jbang trust add https://github.com/Yacn9/springboot-blueprint/ >/dev/null 2>&1 || true
+
 # --fresh: always the latest release, as `npm create …@latest` would.
 # Piped into sh, standard input is this script, so the name prompt reads the terminal instead.
 if [ ! -t 0 ] && (: </dev/tty) 2>/dev/null; then
