@@ -68,7 +68,8 @@ final class ProjectGenerator {
             String source = entry.getName();
             if (entry.isDirectory() || source.equals(TEMPLATE_README) || source.startsWith(Database.OVERLAYS)
                     || !spec.samples() && source.startsWith(SampleModules.MODULES)
-                    || !spec.has(Extra.COMPOSE) && source.equals(CacheProvider.COMPOSE)) {
+                    || !spec.has(Extra.COMPOSE) && source.equals(CacheProvider.COMPOSE)
+                    || !spec.has(Extra.TESTS) && source.startsWith(SampleModules.MODULES) && source.contains("/src/test/")) {
                 continue;
             }
             byte[] content = overlay.containsKey(source) ? overlay.remove(source) : zip.readAllBytes();
@@ -93,7 +94,7 @@ final class ProjectGenerator {
             overlays.add(SampleModules.OVERLAY);
         }
         overlays.addAll(spec.deploy().overlays());
-        spec.extras().stream().filter(extra -> extra != Extra.COMPOSE).map(Extra::overlay).forEach(overlays::add);
+        spec.extras().stream().filter(extra -> !extra.inTemplate()).map(Extra::overlay).forEach(overlays::add);
         for (String overlay : overlays) {
             try (InputStream archive = template.archive().get(); ZipInputStream zip = new ZipInputStream(archive)) {
                 for (ZipEntry entry = zip.getNextEntry(); entry != null; entry = zip.getNextEntry()) {

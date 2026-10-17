@@ -4,6 +4,7 @@ import java.io.BufferedReader;
 import java.io.PrintWriter;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.EnumSet;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.Callable;
@@ -55,6 +56,9 @@ final class NewCommand implements Callable<Integer> {
             description = "none, docker or kubernetes (Helm chart). Asked for when left out.")
     private String deploy;
 
+    @Option(names = "--tests", negatable = true, description = "Keep the sample modules' tests (default), or not.")
+    private Boolean tests;
+
     @Option(names = "--compose", negatable = true, description = "Docker Compose for local services (default), or not.")
     private Boolean compose;
 
@@ -105,10 +109,15 @@ final class NewCommand implements Callable<Integer> {
                     .withCache(cache != null ? cacheFromOption() : CacheProvider.of(prompter.choose("Cache", CacheProvider.ids())))
                     .withSamples(samples != null ? samples
                             : prompter.confirm("Include the sample modules (users, notifications)?", true));
-            project = project.withExtras(Set.of(Extra.COMPOSE).stream()
-                            .filter(extra -> answer(prompter, compose, extra)).collect(Collectors.toSet()))
-                    .withDeploy(deploy != null ? deploymentFromOption() : Deployment.of(prompter.choose("Deploy", Deployment.ids())));
-            Set<Extra> extras = new java.util.HashSet<>(project.extras());
+            Set<Extra> extras = EnumSet.noneOf(Extra.class);
+            // The samples' tests are asked about only when there are samples.
+            if (project.samples() && answer(prompter, tests, Extra.TESTS)) {
+                extras.add(Extra.TESTS);
+            }
+            if (answer(prompter, compose, Extra.COMPOSE)) {
+                extras.add(Extra.COMPOSE);
+            }
+            project = project.withDeploy(deploy != null ? deploymentFromOption() : Deployment.of(prompter.choose("Deploy", Deployment.ids())));
             for (Extra extra : List.of(Extra.CI, Extra.SECURITY, Extra.OBSERVABILITY, Extra.DEPENDABOT)) {
                 Boolean option = switch (extra) {
                     case CI -> ci;
@@ -154,9 +163,9 @@ final class NewCommand implements Callable<Integer> {
         return Database.of(database);
     }
 
-    /** The option when given; otherwise asked — Enter takes the extra's default, no answer means only compose. */
+    /** The option when given; otherwise asked — Enter takes the extra's default, no answer keeps what the template has. */
     private static boolean answer(Prompter prompter, Boolean option, Extra extra) {
-        return option != null ? option : prompter.confirm(extra.question(), extra.byDefault(), extra == Extra.COMPOSE);
+        return option != null ? option : prompter.confirm(extra.question(), extra.byDefault(), extra.inTemplate());
     }
 
     private Deployment deploymentFromOption() {

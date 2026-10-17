@@ -38,8 +38,8 @@ class BlueprintApplicationTests {
                         {
                           "nationalCode": "0012345679",
                           "profile": {
-                            "firstName": "Ali", "lastName": "Rezaei", "mobile": "09121234567",
-                            "email": "ali@example.com", "tier": "GOLD", "branch": "Tehran Central"
+                            "firstName": "Vesen", "lastName": "Naqibi", "mobile": "09121234567",
+                            "email": "vesen@example.com", "tier": "GOLD", "branch": "Tehran Central"
                           }
                         }
                         """)

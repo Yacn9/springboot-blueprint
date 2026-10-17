@@ -33,8 +33,8 @@ Then open <http://localhost:8080/swagger-ui.html>, or:
 ```bash
 curl -X POST localhost:8080/api/users -H 'Content-Type: application/json' -d '{
   "nationalCode": "0012345679",
-  "profile": { "firstName": "Ali", "lastName": "Rezaei", "mobile": "09121234567",
-               "email": "ali@example.com", "tier": "GOLD", "branch": "Tehran Central" } }'
+  "profile": { "firstName": "Vesen", "lastName": "Naqibi", "mobile": "09121234567",
+               "email": "vesen@example.com", "tier": "GOLD", "branch": "Tehran Central" } }'
 
 curl "localhost:8080/api/notifications?userId=<id from the response>"   # the welcome message
 ```

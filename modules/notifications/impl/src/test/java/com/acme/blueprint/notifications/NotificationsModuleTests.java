@@ -46,12 +46,12 @@ class NotificationsModuleTests {
     void welcomesANewlyRegisteredUser(Scenario scenario) {
         UserId id = UserId.newId();
 
-        scenario.publish(new UserRegistered(id, "Ali Rezaei", "ali@example.com", Instant.now()))
+        scenario.publish(new UserRegistered(id, "Vesen Naqibi", "vesen@example.com", Instant.now()))
                 .andWaitForStateChange(() -> sentTo(id), list -> !list.isEmpty())
                 .andVerify((List<Notification> sent) -> assertThat(sent).singleElement().satisfies(notification -> {
                     assertThat(notification.kind()).isEqualTo(NotificationKind.WELCOME);
-                    assertThat(notification.recipient()).isEqualTo("ali@example.com");
-                    assertThat(notification.body()).contains("Ali Rezaei");
+                    assertThat(notification.recipient()).isEqualTo("vesen@example.com");
+                    assertThat(notification.body()).contains("Vesen Naqibi");
                     assertThat(notification.sentAt()).isNotNull();
                 }));
     }

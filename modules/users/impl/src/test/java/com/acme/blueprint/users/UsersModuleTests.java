@@ -49,11 +49,11 @@ class UsersModuleTests {
 
     @Test
     void publishesUserRegisteredWhenAUserIsRegistered(Scenario scenario) {
-        scenario.stimulate(() -> users.register(NationalCode.of("0012345679"), profile("ali@example.com")))
+        scenario.stimulate(() -> users.register(NationalCode.of("0012345679"), profile("vesen@example.com")))
                 .andWaitForEventOfType(UserRegistered.class)
                 .toArriveAndVerify(event -> {
-                    assertThat(event.fullName()).isEqualTo("Ali Rezaei");
-                    assertThat(event.email()).isEqualTo("ali@example.com");
+                    assertThat(event.fullName()).isEqualTo("Vesen Naqibi");
+                    assertThat(event.email()).isEqualTo("vesen@example.com");
                 });
     }
 
@@ -121,10 +121,10 @@ class UsersModuleTests {
     }
 
     private static UserProfile profile(String email) {
-        return profile("Rezaei", email);
+        return profile("Naqibi", email);
     }
 
     private static UserProfile profile(String lastName, String email) {
-        return new UserProfile("Ali", lastName, "09121234567", email, UserTier.GOLD, "Tehran Central", null);
+        return new UserProfile("Vesen", lastName, "09121234567", email, UserTier.GOLD, "Tehran Central", null);
     }
 }

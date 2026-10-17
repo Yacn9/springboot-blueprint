@@ -246,6 +246,17 @@ class TemplateIntegrationTest {
         assertThat(offenders).isEmpty();
     }
 
+    /** The samples without their tests: modules keep their code, lose src/test; the application's tests stay. */
+    @Test
+    void generatesTheSamplesWithoutTheirTests(@TempDir Path work) throws IOException {
+        Path project = generate(ProjectSpec.defaultsFor(ProjectName.fromUserInput("lean-shop")).withExtras(java.util.Set.of(Extra.COMPOSE)), work);
+
+        assertThat(project.resolve("modules/users/impl/src/main")).isDirectory();
+        assertThat(project.resolve("modules/users/impl/src/test")).doesNotExist();
+        assertThat(project.resolve("modules/notifications/impl/src/test")).doesNotExist();
+        assertThat(project.resolve("app/src/test/java/com/leanshop/ArchitectureRulesTests.java")).exists();
+    }
+
     /** Without compose: no compose.yaml, no docker-compose support, a README that says how to point at a database. */
     @Test
     void generatesAProjectWithoutCompose(@TempDir Path work) throws IOException {

@@ -49,7 +49,7 @@ class UserPersistenceAdapterTest {
 
     private static User user() {
         return User.register(NationalCode.of("0012345679"),
-                new UserProfile("Ali", "Rezaei", "09121234567", "ali@example.com", UserTier.GOLD, "Tehran Central", null),
+                new UserProfile("Vesen", "Naqibi", "09121234567", "vesen@example.com", UserTier.GOLD, "Tehran Central", null),
                 Instant.parse("2026-10-17T08:00:00Z"));
     }
 }

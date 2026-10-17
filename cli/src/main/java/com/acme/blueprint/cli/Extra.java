@@ -4,12 +4,13 @@ import java.util.Arrays;
 import java.util.List;
 
 /**
- * The yes-or-no parts of a project. {@link #COMPOSE} is the template as it is
- * (answering no removes it); the others add an overlay ({@code overlays/<id>/})
- * and the edits in {@link Extras}.
+ * The yes-or-no parts of a project. {@link #TESTS} and {@link #COMPOSE} are the
+ * template as it is (answering no removes them); the others add an overlay
+ * ({@code overlays/<id>/}) and the edits in {@link Extras}.
  */
 enum Extra {
 
+    TESTS("tests", "Include the sample modules' tests (unit, web slice and module tests)?", true),
     COMPOSE("compose", "Docker Compose for the local database and cache (bootRun starts it)?", true),
     CI("ci", "A GitHub Actions workflow that builds and tests every push?", true),
     SECURITY("security", "Secure the API with JWTs (OAuth2 resource server)?", false),
@@ -41,6 +42,11 @@ enum Extra {
     /** What Enter means. */
     boolean byDefault() {
         return byDefault;
+    }
+
+    /** Whether the template already has it, so that no answer keeps it. */
+    boolean inTemplate() {
+        return this == TESTS || this == COMPOSE;
     }
 
     String overlay() {

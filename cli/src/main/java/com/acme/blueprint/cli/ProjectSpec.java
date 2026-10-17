@@ -21,7 +21,7 @@ record ProjectSpec(ProjectName name, String basePackage, ProjectVersions version
         CacheProvider cache, boolean samples, Deployment deploy, Set<Extra> extras) {
 
     ProjectSpec(ProjectName name, String basePackage) {
-        this(name, basePackage, null, Database.POSTGRESQL, CacheProvider.NONE, true, Deployment.NONE, Set.of(Extra.COMPOSE));
+        this(name, basePackage, null, Database.POSTGRESQL, CacheProvider.NONE, true, Deployment.NONE, Set.of(Extra.TESTS, Extra.COMPOSE));
     }
 
     /** The defaults for a project named only by its name. */

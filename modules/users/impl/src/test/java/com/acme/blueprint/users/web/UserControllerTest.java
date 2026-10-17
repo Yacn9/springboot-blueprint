@@ -37,13 +37,13 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 class UserControllerTest {
 
     private static final String PROFILE = """
-            { "firstName": "Ali", "lastName": "Rezaei", "mobile": "09121234567",
-              "email": "ali@example.com", "tier": "GOLD", "branch": "Tehran Central" }
+            { "firstName": "Vesen", "lastName": "Naqibi", "mobile": "09121234567",
+              "email": "vesen@example.com", "tier": "GOLD", "branch": "Tehran Central" }
             """;
 
     private final User user = User.register(
             NationalCode.of("0012345679"),
-            new UserProfile("Ali", "Rezaei", "09121234567", "ali@example.com", UserTier.GOLD, "Tehran Central", null),
+            new UserProfile("Vesen", "Naqibi", "09121234567", "vesen@example.com", UserTier.GOLD, "Tehran Central", null),
             Instant.parse("2026-10-17T08:00:00Z"));
 
     @Autowired
@@ -66,7 +66,7 @@ class UserControllerTest {
                 .hasValue(HttpHeaders.LOCATION, "http://localhost/api/users/" + user.id())
                 .hasValue(HttpHeaders.ETAG, "\"0\"");
         assertThat(result).bodyJson().extractingPath("$.data.status").isEqualTo("PENDING");
-        assertThat(result).bodyJson().extractingPath("$.data.profile.firstName").isEqualTo("Ali");
+        assertThat(result).bodyJson().extractingPath("$.data.profile.firstName").isEqualTo("Vesen");
     }
 
     @Test
@@ -120,7 +120,7 @@ class UserControllerTest {
         var result = mvc.post().uri("/api/users")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""
-                        { "nationalCode": "12", "profile": { "firstName": "", "lastName": "Rezaei",
+                        { "nationalCode": "12", "profile": { "firstName": "", "lastName": "Naqibi",
                           "mobile": "123", "email": "not-an-email", "tier": "GOLD", "branch": "Tehran" } }
                         """)
                 .exchange();
