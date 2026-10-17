@@ -117,7 +117,7 @@ From a clone, the same CLI runs without the script:
 
 ```bash
 ./gradlew -p cli jar
-java -jar cli/build/libs/blueprint-cli-0.0.2.jar new
+java -jar cli/build/libs/blueprint-cli-0.0.3.jar new
 ```
 
 The generated project needs Docker for its tests and `bootRun`; Gradle
@@ -181,7 +181,7 @@ prose, if a name containing `blueprint` is mangled, or if the result loses its
 expected shape. For a full check, generate a project and build it:
 
 ```bash
-java -jar cli/build/libs/blueprint-cli-0.0.2.jar new demo-app -d /tmp
+java -jar cli/build/libs/blueprint-cli-0.0.3.jar new demo-app -d /tmp
 cd /tmp/demo-app && ./gradlew build
 ```
 
