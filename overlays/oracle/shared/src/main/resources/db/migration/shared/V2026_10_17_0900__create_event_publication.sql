@@ -1,8 +1,9 @@
 -- Spring Modulith's event publication registry (v2 schema), in the
 -- application user's own schema. Shaped after Modulith's schema-oracle.sql,
 -- with the types its JPA entity maps to: a UUID is RAW(16), an Instant is a
--- TIMESTAMP WITH TIME ZONE.
-CREATE TABLE IF NOT EXISTS event_publication
+-- TIMESTAMP WITH TIME ZONE. No IF NOT EXISTS: Flyway's Oracle parser reads
+-- the IF as a PL/SQL block, and a migration runs once anyway.
+CREATE TABLE event_publication
 (
     id                     RAW(16)                     NOT NULL,
     listener_id            VARCHAR2(512 CHAR)          NOT NULL,
@@ -16,9 +17,9 @@ CREATE TABLE IF NOT EXISTS event_publication
     CONSTRAINT event_publication_pk PRIMARY KEY (id)
 );
 
-CREATE INDEX IF NOT EXISTS event_publication_by_completion_date_idx ON event_publication (completion_date);
+CREATE INDEX event_publication_by_completion_date_idx ON event_publication (completion_date);
 
-CREATE TABLE IF NOT EXISTS event_publication_archive
+CREATE TABLE event_publication_archive
 (
     id                     RAW(16)                     NOT NULL,
     listener_id            VARCHAR2(512 CHAR)          NOT NULL,
@@ -32,5 +33,5 @@ CREATE TABLE IF NOT EXISTS event_publication_archive
     CONSTRAINT event_publication_archive_pk PRIMARY KEY (id)
 );
 
-CREATE INDEX IF NOT EXISTS event_publication_archive_by_completion_date_idx
+CREATE INDEX event_publication_archive_by_completion_date_idx
     ON event_publication_archive (completion_date);

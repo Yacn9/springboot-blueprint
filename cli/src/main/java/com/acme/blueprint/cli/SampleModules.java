@@ -32,7 +32,9 @@ final class SampleModules {
         return switch (path) {
             case SETTINGS -> text.replace(MODULE_INCLUDES,
                     "// Add a module with businessModule(\"<name>\") — see \"Adding a New Module\" in docs/architecture.md.\n");
-            case APP_BUILD -> text.replace(MODULE_DEPENDENCIES, "    // runtimeOnly(project(\":<name>-impl\")) for each module.\n");
+            // Modules bring :shared (the database, cache and broker libraries); without any, the application needs it itself.
+            case APP_BUILD -> text.replace(MODULE_DEPENDENCIES,
+                    "    // runtimeOnly(project(\":<name>-impl\")) for each module.\n    runtimeOnly(project(\":shared\"))\n");
             default -> text;
         };
     }

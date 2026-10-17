@@ -18,7 +18,8 @@ import org.springframework.modulith.events.EventExternalizationConfiguration;
 class EventExternalization {
 
     @Bean
-    EventExternalizationConfiguration eventExternalization() {
+    // Not named after the class: that is this configuration's own bean name.
+    EventExternalizationConfiguration externalizedEvents() {
         return EventExternalizationConfiguration.externalizing()
                 .selectByPackage("com.acme.blueprint")
                 .build();

@@ -1,6 +1,6 @@
 -- The notifications module's schema is an Oracle user that cannot log in; the
 -- application user creates it (see oracle-init/01-privileges.sql).
-CREATE USER IF NOT EXISTS notifications NO AUTHENTICATION
+CREATE USER notifications NO AUTHENTICATION
     DEFAULT TABLESPACE users QUOTA UNLIMITED ON users;
 
 CREATE TABLE notifications.notification
