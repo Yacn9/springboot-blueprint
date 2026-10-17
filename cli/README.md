@@ -1,13 +1,22 @@
 # Blueprint CLI
 
-Creates a new project from this blueprint. It asks for one thing — the project
-name — and writes a complete, building project with the name applied
-everywhere.
+Creates a new project from this blueprint. It asks for the project name, then
+the Java, Spring Boot and Gradle versions, checks your tools, and writes a
+complete, building project.
 
 ```
 $ curl -fsSL https://raw.githubusercontent.com/Yacn9/springboot-blueprint/main/install.sh | sh
 ==> Installing JBang into ~/.jbang ...
 ? Project name (for example my-shop): order-hub
+? Java version (LTS) (25 / 21) [25]:
+? Spring Boot version (4.2.0 / 4.1.1) [4.2.0]:
+? Gradle version: 9.8.1
+
+Checking tools:
+  java    not found; ./gradlew needs Java 17+
+? Install Java 25 (LTS) now? (jbang jdk install 25 && …) [Y/n]: y
+  git     2.43.0
+  gradle  installed (projects run their own ./gradlew)
 
 Created order-hub in /work/order-hub (111 files, base package com.orderhub).
 ```
@@ -23,6 +32,34 @@ Already have [JBang](https://www.jbang.dev)? Skip the script:
 ```bash
 jbang blueprint@Yacn9/springboot-blueprint new
 ```
+
+## The questions
+
+| Question | Choices | Default (Enter) |
+| --- | --- | --- |
+| Project name | see below | — |
+| Java version | the LTS releases the template compiles on: 25, 21 | the newest |
+| Spring Boot version | the template's and newer releases of its major line (4.x), up to 3, from Maven Central | the newest |
+| Gradle version | the template's and the current release, if it is of the same major line (9.x) | the newest |
+
+Hibernate, Spring Modulith's runtime and the other managed libraries follow
+from the Spring Boot version (its BOM). A question with one choice is shown,
+not asked. Offline — or with `BLUEPRINT_OFFLINE=1` — only the template's own
+versions are offered. A newer major (Spring Boot 5, Gradle 10) is never
+offered: the template is not built for it. The choices are written to
+`gradle/libs.versions.toml` (`java`, `spring-boot`) and the wrapper
+(`distributionUrl` and its `distributionSha256Sum`, fetched from Gradle).
+
+Then it checks the tools on the machine and offers to install what is
+missing — nothing is installed without a yes, and nothing is required to go on:
+
+| Tool | Needed | Installed with |
+| --- | --- | --- |
+| Java 17+ (`JAVA_HOME`, else the PATH) | to start `./gradlew`; the project's own JDK comes through the Gradle toolchain | JBang: `jbang jdk install <LTS>`, `jbang jdk default`, `jbang app setup --java` |
+| git 2+ | recommended | the package manager: brew, apt-get, dnf, pacman, zypper (with sudo) or winget; `xcode-select --install` on a Mac without brew |
+| Gradle | optional — projects run their own `./gradlew` | SDKMAN (installed first if missing): `sdk install gradle <version>`; not on Windows |
+
+Open a new terminal after an install so the PATH change applies.
 
 ## What the name becomes
 
@@ -76,7 +113,7 @@ From a clone, the same CLI runs without the script:
 
 ```bash
 ./gradlew -p cli jar
-java -jar cli/build/libs/blueprint-cli-0.0.1.jar new
+java -jar cli/build/libs/blueprint-cli-0.0.2.jar new
 ```
 
 The generated project needs Docker for its tests and `bootRun`; Gradle
@@ -132,13 +169,13 @@ prose, if a name containing `blueprint` is mangled, or if the result loses its
 expected shape. For a full check, generate a project and build it:
 
 ```bash
-java -jar cli/build/libs/blueprint-cli-0.0.1.jar new demo-app -d /tmp
+java -jar cli/build/libs/blueprint-cli-0.0.2.jar new demo-app -d /tmp
 cd /tmp/demo-app && ./gradlew build
 ```
 
 ## Not yet
 
-Asking for more than the name (base package, database, Gradle or Maven),
+Asking for a base package, a database, or Maven instead of Gradle,
 `blueprint doctor`, and adding a module to an existing project. Each fits the same structure: more answers in `ProjectSpec`, more
 tokens in `RewriteRules`. Maven and Oracle also need *overlays* — files the
 template does not have, or has in another form — and with the first one the

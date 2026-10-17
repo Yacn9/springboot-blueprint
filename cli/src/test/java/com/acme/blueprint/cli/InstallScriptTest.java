@@ -94,6 +94,7 @@ class InstallScriptTest {
         environment.put("PATH", "/usr/bin:/bin");
         environment.put("HOME", home.toString());
         environment.put("BLUEPRINT_CLI", CLI_JAR.toString());
+        environment.put("BLUEPRINT_OFFLINE", "1");
         environment.put("JBANG_ARGS", work.resolve("jbang-args").toString());
         environment.put("TEST_JAVA", Path.of(System.getProperty("java.home"), "bin", "java").toString());
 

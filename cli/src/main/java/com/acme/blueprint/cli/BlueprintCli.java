@@ -44,8 +44,13 @@ public final class BlueprintCli implements Runnable {
 
     /** The command line with its subcommands wired to the given template and input. */
     static CommandLine commandLine(ProjectTemplate template, BufferedReader promptInput) {
+        return commandLine(template, promptInput, Releases.online(), SystemTools.local());
+    }
+
+    /** As above, with where newer releases come from and the machine's tools made explicit — for tests. */
+    static CommandLine commandLine(ProjectTemplate template, BufferedReader promptInput, Releases releases, SystemTools tools) {
         CommandLine commandLine = new CommandLine(new BlueprintCli());
-        commandLine.addSubcommand(new NewCommand(template, promptInput, new ProjectGenerator()));
+        commandLine.addSubcommand(new NewCommand(template, promptInput, new ProjectGenerator(), releases, tools));
         // Set after the subcommands are added: a setting reaches only the commands that exist when it is made.
         commandLine.setParameterExceptionHandler((exception, arguments) -> {
             CommandLine failed = exception.getCommandLine();

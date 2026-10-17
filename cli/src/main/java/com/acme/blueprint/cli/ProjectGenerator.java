@@ -38,7 +38,7 @@ final class ProjectGenerator {
         TargetDirectory directory = TargetDirectory.claim(target);
         try (InputStream archive = template.archive().get()) {
             directory.create();
-            int files = unpack(archive, new RewriteRules(spec), directory);
+            int files = unpack(archive, new RewriteRules(spec), spec.versions(), directory);
             writeReadme(template.readme(), spec, directory);
             return new GeneratedProject(directory.path(), files + 1);
         } catch (IOException | RuntimeException failure) {
@@ -50,7 +50,8 @@ final class ProjectGenerator {
         }
     }
 
-    private static int unpack(InputStream archive, RewriteRules rules, TargetDirectory directory) throws IOException {
+    private static int unpack(InputStream archive, RewriteRules rules, ProjectVersions versions, TargetDirectory directory)
+            throws IOException {
         int files = 0;
         ZipInputStream zip = new ZipInputStream(archive);
         for (ZipEntry entry = zip.getNextEntry(); entry != null; entry = zip.getNextEntry()) {
@@ -60,7 +61,7 @@ final class ProjectGenerator {
             }
             Path file = directory.resolve(rules.path(source));
             Files.createDirectories(file.getParent());
-            Files.write(file, rewritten(zip.readAllBytes(), source, rules));
+            Files.write(file, rewritten(zip.readAllBytes(), source, rules, versions));
             if (file.getFileName().toString().equals("gradlew")) {
                 file.toFile().setExecutable(true);
             }
@@ -70,9 +71,11 @@ final class ProjectGenerator {
     }
 
     /** Text is renamed as UTF-8; whatever is not text (the Gradle wrapper jar) passes through byte for byte. */
-    private static byte[] rewritten(byte[] content, String source, RewriteRules rules) {
+    private static byte[] rewritten(byte[] content, String source, RewriteRules rules, ProjectVersions versions) {
         return asText(content)
-                .map(text -> rules.content(text, source.endsWith(".md")).getBytes(UTF_8))
+                .map(text -> rules.content(text, source.endsWith(".md")))
+                .map(text -> versions == null ? text : versions.pin(source, text))
+                .map(text -> text.getBytes(UTF_8))
                 .orElse(content);
     }
 

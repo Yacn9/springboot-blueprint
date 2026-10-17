@@ -8,12 +8,21 @@ package com.acme.blueprint.cli;
  *
  * @param name        what the user calls the project
  * @param basePackage the Java base package, such as {@code com.myshop}
+ * @param versions    the Java, Spring Boot and Gradle versions to pin; null keeps the template's
  */
-record ProjectSpec(ProjectName name, String basePackage) {
+record ProjectSpec(ProjectName name, String basePackage, ProjectVersions versions) {
+
+    ProjectSpec(ProjectName name, String basePackage) {
+        this(name, basePackage, null);
+    }
 
     /** The defaults for a project named only by its name. */
     static ProjectSpec defaultsFor(ProjectName name) {
         return new ProjectSpec(name, "com." + name.kebabCase().replace("-", ""));
+    }
+
+    ProjectSpec withVersions(ProjectVersions chosen) {
+        return new ProjectSpec(name, basePackage, chosen);
     }
 
     /** The Gradle project and the directory: {@code my-shop}. */

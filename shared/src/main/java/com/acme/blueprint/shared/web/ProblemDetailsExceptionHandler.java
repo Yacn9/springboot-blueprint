@@ -161,26 +161,30 @@ class ProblemDetailsExceptionHandler extends ResponseEntityExceptionHandler {
         return super.handleExceptionInternal(exception, resolved, headers, status, request);
     }
 
+    // Named pattern bindings, never `_`: generated projects may target Java 21,
+    // and unnamed patterns are Java 22+.
     private static HttpStatus statusOf(BusinessException exception) {
         return switch (exception) {
-            case InvalidRequestException _ -> HttpStatus.BAD_REQUEST;
-            case ResourceNotFoundException _ -> HttpStatus.NOT_FOUND;
-            case ConflictException _ -> HttpStatus.CONFLICT;
-            case PreconditionFailedException _ -> HttpStatus.PRECONDITION_FAILED;
-            case BusinessRuleViolationException _ -> HttpStatus.UNPROCESSABLE_CONTENT;
+            case InvalidRequestException e -> HttpStatus.BAD_REQUEST;
+            case ResourceNotFoundException e -> HttpStatus.NOT_FOUND;
+            case ConflictException e -> HttpStatus.CONFLICT;
+            case PreconditionFailedException e -> HttpStatus.PRECONDITION_FAILED;
+            case BusinessRuleViolationException e -> HttpStatus.UNPROCESSABLE_CONTENT;
         };
     }
 
     private static String defaultCode(Exception exception, HttpStatusCode status) {
         return switch (exception) {
-            case HttpMessageNotReadableException _ -> "request.malformed-body";
-            case TypeMismatchException _ -> "request.invalid-parameter";
-            case MissingRequestValueException _ -> "request.missing-parameter";
-            case MethodArgumentNotValidException _, HandlerMethodValidationException _ -> "request.invalid";
-            case NoResourceFoundException _, NoHandlerFoundException _ -> "request.not-found";
-            case HttpRequestMethodNotSupportedException _ -> "request.method-not-allowed";
-            case HttpMediaTypeNotSupportedException _ -> "request.unsupported-media-type";
-            case HttpMediaTypeNotAcceptableException _ -> "request.not-acceptable";
+            case HttpMessageNotReadableException e -> "request.malformed-body";
+            case TypeMismatchException e -> "request.invalid-parameter";
+            case MissingRequestValueException e -> "request.missing-parameter";
+            case MethodArgumentNotValidException e -> "request.invalid";
+            case HandlerMethodValidationException e -> "request.invalid";
+            case NoResourceFoundException e -> "request.not-found";
+            case NoHandlerFoundException e -> "request.not-found";
+            case HttpRequestMethodNotSupportedException e -> "request.method-not-allowed";
+            case HttpMediaTypeNotSupportedException e -> "request.unsupported-media-type";
+            case HttpMediaTypeNotAcceptableException e -> "request.not-acceptable";
             default -> codeFor(status);
         };
     }

@@ -6,7 +6,7 @@ plugins {
 }
 
 group = "com.acme.blueprint"
-version = "0.0.1"
+version = "0.0.2"
 
 dependencies {
     implementation("info.picocli:picocli:4.7.7")
