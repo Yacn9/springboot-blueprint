@@ -76,6 +76,18 @@ calls `CustomerDirectory` synchronously.
 ./gradlew :app:bootJar                         # the deployable → app/build/libs/
 ```
 
+## Generating a new project
+
+One command, no clone — it asks for the project name and renames the package,
+the Gradle project and the application class for you (needs Java 17+):
+
+```bash
+bash <(curl -Ls https://raw.githubusercontent.com/Yacn9/springboot-blueprint/main/install.sh)
+```
+
+The tool lives in [`cli/`](cli/README.md), which also explains its options and
+how it is released.
+
 ## Making it yours
 
 1. Rename the base package `com.acme.blueprint` (all projects) and
