@@ -26,6 +26,10 @@ jobs:
           - { database: oracle, cache: memcached, flags: --deploy docker --security }
           - { database: postgresql, cache: none, flags: --deploy docker --no-compose }
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        # Named explicitly, GitHub runs bash with pipefail: `./gradlew build | tee` fails when the build does.
+        shell: bash
     steps:
       - uses: actions/checkout@v5
 
