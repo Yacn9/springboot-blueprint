@@ -1,7 +1,7 @@
 name: Release the Blueprint CLI
 
-# Push a tag such as v0.1.0 to publish it: the install script downloads the
-# jar and its checksum from the latest release.
+# Push a tag such as v0.0.1 to publish it: install.sh (through the jbang-catalog.json
+# alias) runs the jar from the latest release.
 on:
   push:
     tags: ["v*"]

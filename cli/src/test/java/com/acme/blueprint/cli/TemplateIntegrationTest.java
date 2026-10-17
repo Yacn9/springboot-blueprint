@@ -122,6 +122,7 @@ class TemplateIntegrationTest {
     void leavesOutBuildOutputToolStateAndTheCliItself() {
         assertThat(project.resolve("cli")).doesNotExist();
         assertThat(project.resolve("install.sh")).doesNotExist();
+        assertThat(project.resolve("jbang-catalog.json")).doesNotExist();
         assertThat(project.resolve(".github")).doesNotExist();
         assertThat(project.resolve(".git")).doesNotExist();
         assertThat(project.resolve(".claude")).doesNotExist();

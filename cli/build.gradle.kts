@@ -6,7 +6,7 @@ plugins {
 }
 
 group = "com.acme.blueprint"
-version = "0.1.0"
+version = "0.0.1"
 
 dependencies {
     implementation("info.picocli:picocli:4.7.7")
@@ -37,7 +37,7 @@ val templateZip: Provider<RegularFile> = layout.buildDirectory.file("template/te
 // that belongs to the blueprint's own distribution — this CLI, its installer and its release workflow.
 val excludedDirectories = setOf(".git", ".github", ".gradle", ".kotlin", ".idea", ".vscode", ".claude", ".settings", "build", "out", "bin")
 val excludedFileSuffixes = listOf(".iml", ".classpath", ".project")
-val distributionOnly = setOf("cli", "install.sh")
+val distributionOnly = setOf("cli", "install.sh", "jbang-catalog.json")
 
 /** Whether a file or directory below the repository root is, by its place alone, part of the template. */
 fun isInTemplate(path: File): Boolean {

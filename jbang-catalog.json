@@ -1,0 +1,9 @@
+{
+  "aliases": {
+    "blueprint": {
+      "script-ref": "https://github.com/Yacn9/springboot-blueprint/releases/latest/download/blueprint-cli.jar",
+      "description": "Create a project from the modular-monolith Spring Boot blueprint",
+      "java": "17+"
+    }
+  }
+}

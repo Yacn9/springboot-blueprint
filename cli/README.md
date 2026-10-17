@@ -5,21 +5,24 @@ name — and writes a complete, building project with the name applied
 everywhere.
 
 ```
-$ bash <(curl -Ls https://raw.githubusercontent.com/Yacn9/springboot-blueprint/main/install.sh)
-==> Downloading the Blueprint CLI from https://github.com/Yacn9/springboot-blueprint/releases/latest/download ...
+$ curl -fsSL https://raw.githubusercontent.com/Yacn9/springboot-blueprint/main/install.sh | sh
+==> Installing JBang into ~/.jbang ...
 ? Project name (for example my-shop): order-hub
 
 Created order-hub in /work/order-hub (111 files, base package com.orderhub).
 ```
 
-Nothing to clone and nothing to install but Java 17+. Arguments go to
-`blueprint new`: add the name to skip the prompt (`bash <(curl …) order-hub`).
+Nothing to clone and nothing to install by hand — not even Java. Arguments go
+to `blueprint new`: add the name to skip the prompt (`curl … | sh -s -- order-hub`).
 The project is created in a new directory named after it, inside the current
 directory — or inside `--parent-dir <dir>` (short form `-d`), so `-d /work`
 gives `/work/order-hub`.
 
-Use `bash <(curl …)` as shown, not `curl … | bash`: piped into bash, the script
-would take over standard input and the prompt could not read your answer.
+Already have [JBang](https://www.jbang.dev)? Skip the script:
+
+```bash
+jbang blueprint@Yacn9/springboot-blueprint new
+```
 
 ## What the name becomes
 
@@ -51,32 +54,27 @@ usage errors add a pointer to `--help`.
 
 ## The install script
 
-[`install.sh`](../install.sh) runs on macOS, Linux and Git Bash on Windows. It:
+[`install.sh`](../install.sh) is POSIX `sh` for macOS, Linux and Git Bash on Windows. It:
 
-1. finds Java 17+ (`JAVA_HOME`, else `java` on the PATH) and says how to get it if there is none;
-2. reads the checksum published with the latest release, and downloads
-   `blueprint-cli.jar` only if that checksum is not cached yet in
-   `~/.cache/blueprint` — verifying the download before anything runs;
-3. runs `blueprint new` with your arguments. When GitHub cannot be reached it
-   uses the newest cached CLI, and says so.
+1. installs [JBang](https://www.jbang.dev) into `~/.jbang` when `jbang` is not
+   found (its installer also adds it to your shell's PATH);
+2. runs `jbang --fresh blueprint@Yacn9/springboot-blueprint new` with your
+   arguments. The alias lives in [`jbang-catalog.json`](../jbang-catalog.json)
+   and points at the latest release's `blueprint-cli.jar`; JBang downloads a
+   JDK 17+ first if none is installed, and `--fresh` makes every run use the
+   newest release;
+3. when piped (`curl … | sh`), reads the name prompt from the terminal, since
+   standard input is the script itself.
 
 | Setting | Effect |
 | --- | --- |
-| `--from-source` | Build the CLI from the repository's source with its Gradle wrapper instead of downloading a release. Slower; needs only a JDK. |
-| `BLUEPRINT_VERSION=0.1.0` | Use that release instead of the latest. |
-| `BLUEPRINT_RELEASE_URL=<dir url>` | Download from a mirror holding `blueprint-cli.jar` and `blueprint-cli.jar.sha256`. |
-| `BLUEPRINT_HOME=<dir>` | Cache somewhere other than `~/.cache/blueprint`. |
-| `BLUEPRINT_SOURCE_URL=<tarball>` | The source archive for `--from-source`. |
-
-The checksum guards against a broken or truncated download. It comes from the
-same release as the jar, so it does not prove who published it — that trust is
-in the GitHub repository.
+| `BLUEPRINT_CLI=<jar url or path>` | Run that jar instead of the latest release — pins a version: `https://github.com/Yacn9/springboot-blueprint/releases/download/v0.0.1/blueprint-cli.jar`. |
 
 From a clone, the same CLI runs without the script:
 
 ```bash
 ./gradlew -p cli jar
-java -jar cli/build/libs/blueprint-cli-0.1.0.jar new
+java -jar cli/build/libs/blueprint-cli-0.0.1.jar new
 ```
 
 The generated project needs Docker for its tests and `bootRun`; Gradle
@@ -84,8 +82,8 @@ provisions JDK 25 itself.
 
 ## Releasing
 
-1. Set `version` in `cli/build.gradle.kts` (for example `0.2.0`) and commit.
-2. Tag that commit `v0.2.0` and push the tag.
+1. Set `version` in `cli/build.gradle.kts` (for example `0.0.2`) and commit.
+2. Tag that commit `v0.0.2` and push the tag.
 
 [`.github/workflows/release.yml`](../.github/workflows/release.yml) refuses a tag
 that does not match the version, builds and tests the CLI, and publishes
@@ -99,7 +97,7 @@ inside the jar (`templateArchive` task). It includes the files git would show �
 tracked, or untracked and not ignored — so a new `.gitignore` entry keeps its
 files out of every generated project; without git it falls back to a fixed
 list. `.git`, tool state, build output and the blueprint's own distribution —
-`cli/`, `install.sh`, `.github/` — are never included.
+`cli/`, `install.sh`, `jbang-catalog.json`, `.github/` — are never included.
 
 Generating a project unpacks that archive. `ProjectSpec` holds the answers and
 the role each plays (`artifact`, `basePackage`, `classPrefix`, `shortName`);
@@ -132,7 +130,7 @@ prose, if a name containing `blueprint` is mangled, or if the result loses its
 expected shape. For a full check, generate a project and build it:
 
 ```bash
-java -jar cli/build/libs/blueprint-cli-0.1.0.jar new demo-app -d /tmp
+java -jar cli/build/libs/blueprint-cli-0.0.1.jar new demo-app -d /tmp
 cd /tmp/demo-app && ./gradlew build
 ```
 
