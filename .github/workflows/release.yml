@@ -1,0 +1,47 @@
+name: Release the Blueprint CLI
+
+# Push a tag such as v0.1.0 to publish it: the install script downloads the
+# jar and its checksum from the latest release.
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: The tag must match the CLI's version
+        run: |
+          declared="$(sed -n 's/^version = "\(.*\)"/\1/p' cli/build.gradle.kts | head -n1)"
+          if [ "v$declared" != "$GITHUB_REF_NAME" ]; then
+            echo "Tag $GITHUB_REF_NAME does not match version $declared in cli/build.gradle.kts." >&2
+            exit 1
+          fi
+
+      - name: Build and test the CLI
+        run: |
+          chmod +x gradlew
+          ./gradlew -p cli build --console=plain
+
+      - name: Name the jar and checksum it
+        run: |
+          cp cli/build/libs/blueprint-cli-*.jar blueprint-cli.jar
+          sha256sum blueprint-cli.jar > blueprint-cli.jar.sha256
+          cat blueprint-cli.jar.sha256
+
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" blueprint-cli.jar blueprint-cli.jar.sha256 \
+            --title "$GITHUB_REF_NAME" --generate-notes
