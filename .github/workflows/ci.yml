@@ -16,9 +16,9 @@ jobs:
         database: [postgresql, oracle]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: "25"
@@ -34,11 +34,33 @@ jobs:
 
       - name: Build it
         working-directory: ${{ runner.temp }}/ci-app
-        run: ./gradlew build --console=plain
+        run: ./gradlew build --console=plain 2>&1 | tee build.log
+
+      # Annotations are public, unlike logs: anyone can see why a build failed.
+      - name: Report why
+        if: failure()
+        working-directory: ${{ runner.temp }}/ci-app
+        run: |
+          python3 - <<'PY'
+          import glob, re, xml.etree.ElementTree as ET
+          for path in glob.glob("**/build/test-results/test/*.xml", recursive=True):
+              for case in ET.parse(path).getroot().iter("testcase"):
+                  for problem in [*case.iter("failure"), *case.iter("error")]:
+                      text = problem.text or problem.get("message", "")
+                      causes = re.findall(r"Caused by: (.*)", text)
+                      message = (causes[-1] if causes else text.strip().splitlines()[0])[:1500]
+                      print(f"::error title={case.get('classname')}.{case.get('name')}::{message}")
+          try:
+              log = open("build.log", encoding="utf-8").read()
+              for went_wrong in re.findall(r"What went wrong:\n(.*(?:\n.+){0,6})", log):
+                  print("::error title=Gradle::" + went_wrong.replace("\n", " | ")[:1500])
+          except FileNotFoundError:
+              pass
+          PY
 
       - name: Keep the test reports
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: test-reports-${{ matrix.database }}
           path: ${{ runner.temp }}/ci-app/**/build/reports/tests/
