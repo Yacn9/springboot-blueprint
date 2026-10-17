@@ -14,10 +14,16 @@ final class Prompter {
 
     private final BufferedReader input;
     private final PrintWriter output;
+    private final Style style;
 
     Prompter(BufferedReader input, PrintWriter output) {
+        this(input, output, Style.PLAIN);
+    }
+
+    Prompter(BufferedReader input, PrintWriter output, Style style) {
         this.input = input;
         this.output = output;
+        this.style = style;
     }
 
     /**
@@ -29,7 +35,7 @@ final class Prompter {
      */
     <T> Optional<T> ask(String question, Function<String, T> parser) {
         while (true) {
-            output.print("? " + question + ": ");
+            output.print(style.prompt(question));
             output.flush();
             String answer = readLine();
             if (answer == null) {
@@ -40,7 +46,7 @@ final class Prompter {
             try {
                 return Optional.of(parser.apply(answer));
             } catch (IllegalArgumentException rejected) {
-                output.println(rejected.getMessage());
+                output.println(style.red(rejected.getMessage()));
             }
         }
     }
@@ -52,7 +58,7 @@ final class Prompter {
     String choose(String question, List<String> options) {
         String first = options.get(0);
         if (options.size() == 1) {
-            output.println("? " + question + ": " + first);
+            output.println(style.prompt(question) + style.cyan(first));
             output.flush();
             return first;
         }

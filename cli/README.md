@@ -35,30 +35,8 @@ jbang blueprint@Yacn9/springboot-blueprint new
 
 ## The questions
 
-| Question | Choices | Default (Enter) |
-| --- | --- | --- |
-| Project name | see below | — |
-| Java version | the LTS releases the template compiles on: 25, 21 | the newest |
-| Spring Boot version | the template's and newer releases of its major line (4.x), up to 3, from Maven Central | the newest |
-| Gradle version | the template's and the current release, if it is of the same major line (9.x) | the newest |
-| Database | `postgresql` or `oracle` (also `--database <id>`) | postgresql |
-| Cache | `none`, `memory` (Caffeine), `redis` or `memcached` (also `--cache <id>`) | none |
-| Sample modules | keep `users` and `notifications`, or start with no modules (also `--[no-]samples`) | keep |
-| Docker Compose | keep `compose.yaml` (database and cache for `bootRun`) or not (also `--[no-]compose`) | keep |
-| Deploy | `none`, `docker` (Dockerfile; with compose, the app as a compose service under profile `app`) or `kubernetes` (that plus a Helm chart in `deploy/helm/`) — also `--deploy <id>` | none |
-| CI | a GitHub Actions workflow: build and test, plus image and Helm checks when present (`--[no-]ci`) | yes |
-| Security | JWT resource server in `:app`; health, info and OpenAPI stay open; 401/403 as problem details (`--[no-]security`) | no |
-| Observability | Prometheus endpoint and OpenTelemetry tracing (`--[no-]observability`) | yes |
-| Dependabot | weekly updates for Gradle, plus Actions and Docker when present (`--[no-]dependabot`) | yes |
-| Git | `git init` on `main` with one commit, *Initial commit from blueprint new* (also `--[no-]git`); skipped inside an existing repository, undone if the commit fails | yes (no when not asked, e.g. piped input) |
-
-Hibernate, Spring Modulith's runtime and the other managed libraries follow
-from the Spring Boot version (its BOM). A question with one choice is shown,
-not asked. Offline — or with `BLUEPRINT_OFFLINE=1` — only the template's own
-versions are offered. A newer major (Spring Boot 5, Gradle 10) is never
-offered: the template is not built for it. The choices are written to
-`gradle/libs.versions.toml` (`java`, `spring-boot`) and the wrapper
-(`distributionUrl` and its `distributionSha256Sum`, fetched from Gradle).
+The questions, their choices and defaults are in the [README](../README.md#what-you-choose).
+How each choice is applied:
 
 Then it checks the tools on the machine and offers to install what is
 missing — nothing is installed without a yes, and nothing is required to go on:

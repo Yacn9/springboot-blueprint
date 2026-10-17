@@ -86,9 +86,11 @@ final class NewCommand implements Callable<Integer> {
     private final ProjectGenerator generator;
     private final Releases releases;
     private final SystemTools tools;
+    private final Style style;
 
     NewCommand(ProjectTemplate template, BufferedReader input, ProjectGenerator generator,
-            Releases releases, SystemTools tools) {
+            Releases releases, SystemTools tools, Style style) {
+        this.style = style;
         this.template = template;
         this.input = input;
         this.generator = generator;
@@ -99,7 +101,8 @@ final class NewCommand implements Callable<Integer> {
     @Override
     public Integer call() {
         PrintWriter out = spec.commandLine().getOut();
-        Prompter prompter = new Prompter(input, out);
+        out.print(style.banner());
+        Prompter prompter = new Prompter(input, out, style);
         ProjectName name = projectName != null ? nameFromArgument() : nameFromPrompt(prompter);
         ProjectSpec project = ProjectSpec.defaultsFor(name);
         Optional<ProjectVersions> templateVersions = ProjectVersions.of(template);
@@ -141,7 +144,7 @@ final class NewCommand implements Callable<Integer> {
         if (initGit) {
             tools.initGit(generated.directory()).ifPresentOrElse(
                     reason -> out.println("No git repository: " + reason + "."),
-                    () -> out.println("Initialized a git repository on main: \"" + SystemTools.INITIAL_COMMIT + "\"."));
+                    () -> out.println(style.ok("Initialized a git repository on main: \"" + SystemTools.INITIAL_COMMIT + "\".")));
         }
         printSummary(out, project, generated);
         return BlueprintCli.SUCCESS;
@@ -207,30 +210,30 @@ final class NewCommand implements Callable<Integer> {
     private void checkTools(Prompter prompter, PrintWriter out, ProjectVersions versions) {
         String java = versions != null ? versions.java() : Releases.JAVA_LTS.get(0);
         out.println();
-        out.println("Checking tools:");
+        out.println(style.bold("Checking tools:"));
 
         Optional<String> javaVersion = tools.javaVersion();
         if (javaVersion.filter(version -> SystemTools.javaMajor(version) >= SystemTools.MIN_JAVA).isPresent()) {
-            out.printf("  java    %s%n", javaVersion.get());
+            out.println("  " + style.ok("java    " + javaVersion.get()));
         } else {
-            out.printf("  java    %s; ./gradlew needs Java %d+%n",
-                    javaVersion.map(version -> version + " is too old").orElse("not found"), SystemTools.MIN_JAVA);
+            out.println("  " + style.warn("java    %s; ./gradlew needs Java %d+".formatted(
+                    javaVersion.map(version -> version + " is too old").orElse("not found"), SystemTools.MIN_JAVA)));
             offer(prompter, out, "Java " + java + " (LTS)", tools.javaInstall(java), "https://adoptium.net");
         }
 
         Optional<String> gitVersion = tools.gitVersion();
         if (gitVersion.filter(version -> SystemTools.gitMajor(version) >= SystemTools.MIN_GIT).isPresent()) {
-            out.printf("  git     %s%n", gitVersion.get());
+            out.println("  " + style.ok("git     " + gitVersion.get()));
         } else {
-            out.printf("  git     %s; git %d+ is recommended%n",
-                    gitVersion.map(version -> version + " is too old").orElse("not found"), SystemTools.MIN_GIT);
+            out.println("  " + style.warn("git     %s; git %d+ is recommended".formatted(
+                    gitVersion.map(version -> version + " is too old").orElse("not found"), SystemTools.MIN_GIT)));
             offer(prompter, out, "git", tools.gitInstall(), "https://git-scm.com/downloads");
         }
 
         if (tools.hasGradle()) {
-            out.println("  gradle  installed (projects run their own ./gradlew)");
+            out.println("  " + style.ok("gradle  installed (projects run their own ./gradlew)"));
         } else if (versions != null) {
-            out.println("  gradle  not found (optional: projects run their own ./gradlew)");
+            out.println("  " + style.dim("gradle  not found (optional: projects run their own ./gradlew)"));
             offer(prompter, out, "Gradle " + versions.gradle(), tools.gradleInstall(versions.gradle()),
                     "https://gradle.org/install");
         }
@@ -255,16 +258,16 @@ final class NewCommand implements Callable<Integer> {
 
     private void printSummary(PrintWriter out, ProjectSpec project, GeneratedProject generated) {
         out.println();
-        out.printf("Created %s in %s (%d files, base package %s, %s, cache: %s).%n", project.artifact(),
-                generated.directory(), generated.fileCount(), project.basePackage(), project.database().displayName(),
-                project.cache().id());
+        out.println(style.ok(style.bold("Created " + project.artifact()) + " in %s (%d files, base package %s, %s, cache: %s)."
+                .formatted(generated.directory(), generated.fileCount(), project.basePackage(),
+                        project.database().displayName(), project.cache().id())));
         out.println();
-        out.println("Next steps:");
-        out.println("  cd " + whereToEnter(project, generated));
-        out.println("  ./gradlew build           # all tests; needs Docker for the database");
-        out.println("  ./gradlew :app:bootRun    # starts the database and the app on :8080");
+        out.println(style.bold("Next steps:"));
+        out.println("  " + style.cyan("cd " + whereToEnter(project, generated)));
+        out.println("  " + style.cyan("./gradlew build") + "           " + style.dim("# all tests; needs Docker for the database"));
+        out.println("  " + style.cyan("./gradlew :app:bootRun") + "    " + style.dim("# starts the database and the app on :8080"));
         out.println();
-        out.println("Read docs/architecture.md before adding code.");
+        out.println(style.dim("Read docs/architecture.md before adding code."));
         out.flush();
     }
 

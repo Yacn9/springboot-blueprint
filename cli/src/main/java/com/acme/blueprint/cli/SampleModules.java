@@ -21,7 +21,7 @@ final class SampleModules {
             modules/users/impl   :users-impl     domain · application · infrastructure · web
             modules/notifications/…  :notifications-api / :notifications-impl
             """;
-    private static final String README_SLICE_START = "`users` is the full reference slice";
+    private static final String README_SLICE_START = "Try it:";
     private static final String README_SLICE_END = "lists the\nsteps.\n";
 
     private SampleModules() {

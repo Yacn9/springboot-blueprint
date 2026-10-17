@@ -1,34 +1,88 @@
-# Modular Monolith Blueprint
-
-A starting point for a **Spring Boot 4.1 + Hibernate 7** backend built as a
-**modular monolith** with **Gradle 9** — one deployable, many isolated business
-modules, boundaries enforced by the build itself.
-
-| | |
-| --- | --- |
-| Language | Java 25 (LTS), Gradle toolchain |
-| Framework | Spring Boot 4.1.1, Spring Modulith 2.1.1 |
-| Persistence | Hibernate 7 via Spring Data JPA, Flyway, PostgreSQL 18 — or Oracle 23ai, chosen when the project is generated |
-| Build | Gradle 9.8.1, Kotlin DSL, convention plugins in `build-logic/`, version catalog |
-| Tests | JUnit 6, Spring Modulith test, Testcontainers 2, ArchUnit |
-| API | REST + JSON, RFC 9457 problem details, OpenAPI via springdoc |
-
-Read **[docs/architecture.md](docs/architecture.md)** before adding code — it
-explains the rules the build enforces and why.
-
----
-
-## Quick start
-
-Prerequisites: a JDK 17+ to launch Gradle (Gradle provisions JDK 25 itself) and
-Docker (for the database and the integration tests).
+# blueprint — Spring Boot modular monoliths in one command
 
 ```bash
-./gradlew build            # compile, unit + module + architecture + end-to-end tests
-./gradlew :app:bootRun     # starts PostgreSQL from compose.yaml, then the app on :8080
+curl -fsSL https://raw.githubusercontent.com/Yacn9/springboot-blueprint/main/install.sh | sh
 ```
 
-Then open <http://localhost:8080/swagger-ui.html>, or:
+Like `npm create vite` for Spring Boot. A few questions, then a complete,
+building project: one deployable, many isolated business modules, with the
+module boundaries enforced by the build itself — not by good intentions.
+
+```text
+? Project name (for example my-shop): order-hub
+? Java version (LTS) (25 / 21) [25]:
+? Spring Boot version: 4.1.1
+? Gradle version: 9.8.1
+? Database (postgresql / oracle) [postgresql]:
+? Cache (none / memory / redis / memcached) [none]: redis
+? Include the sample modules (users, notifications)? [Y/n]:
+? Include the sample modules' tests (unit, web slice and module tests)? [Y/n]:
+? Docker Compose for the local database and cache (bootRun starts it)? [Y/n]:
+? Deploy (none / docker / kubernetes) [none]: kubernetes
+? A GitHub Actions workflow that builds and tests every push? [Y/n]:
+? Secure the API with JWTs (OAuth2 resource server)? [y/N]: y
+? Observability: Prometheus metrics and OpenTelemetry tracing? [Y/n]:
+? Dependabot for dependency updates? [Y/n]:
+? Initialize a git repository with a first commit? [Y/n]:
+
+Checking tools:
+  java    25.0.1
+  git     2.47.0
+  gradle  not found (optional: projects run their own ./gradlew)
+
+Created order-hub in ./order-hub (130 files, base package com.orderhub, PostgreSQL, cache: redis).
+```
+
+```bash
+cd order-hub
+./gradlew build            # every test, against real containers
+./gradlew :app:bootRun     # starts the database and cache, then the app on :8080
+```
+
+## What you choose
+
+| | Choices | Default |
+| --- | --- | --- |
+| Java | LTS 25 or 21 | 25 |
+| Spring Boot, Gradle | the newest release of the template's line, looked up live | newest |
+| Database | PostgreSQL, or Oracle 23ai (one Oracle user per module) | PostgreSQL |
+| Cache | none, in memory (Caffeine), Redis, or Memcached | none |
+| Sample modules | `users` and `notifications` — and their tests — or an empty project | keep |
+| Docker Compose | the local database and cache, started by `bootRun` | yes |
+| Deploy | none, Docker (Dockerfile + the app in compose), or Kubernetes (plus a Helm chart) | none |
+| Extras | GitHub Actions CI · JWT security · Prometheus + OpenTelemetry · Dependabot | CI, observability, Dependabot |
+| Git | `git init` on `main` with *Initial commit from blueprint new* | yes |
+
+Every question has a flag, so scripts and CI need no prompts:
+
+```bash
+curl -fsSL …/install.sh | sh -s -- order-hub --database oracle --cache redis --deploy kubernetes --security --no-git
+```
+
+Missing Java, git or Gradle? The CLI offers to install them — through JBang,
+your package manager and SDKMAN — and installs nothing without a yes.
+
+## What you get
+
+- **Boundaries the compiler enforces.** Every module is an `-api` project (its
+  public contract, plain Java) and an `-impl` project. Importing another
+  module's internals does not compile; Spring Modulith and ArchUnit catch what
+  Gradle cannot — cycles, wrong layering, SQL outside migrations.
+- **A schema per module**, migrated by Flyway, validated by Hibernate, no
+  foreign keys across modules — so a module can leave as a service later.
+- **Modules that talk two ways:** transactional, at-least-once events through
+  Spring Modulith's publication registry, and small synchronous `Directory`
+  interfaces.
+- **A REST API with care:** RFC 9457 problem details with stable codes,
+  `ETag` / `If-Match` optimistic locking, paging and sorting by public keys,
+  OpenAPI.
+- **Tests at every level:** domain, use case, web slice, one module alone
+  against a real database, the architecture, and end to end — all in
+  `./gradlew build`, on Testcontainers.
+- **Ready to ship, if you asked:** a non-root layered Docker image, a Helm chart
+  with Spring Boot's probes, a CI workflow, JWT security and observability.
+
+Try the sample API once it runs:
 
 ```bash
 curl -X POST localhost:8080/api/users -H 'Content-Type: application/json' -d '{
@@ -39,78 +93,30 @@ curl -X POST localhost:8080/api/users -H 'Content-Type: application/json' -d '{
 curl "localhost:8080/api/notifications?userId=<id from the response>"   # the welcome message
 ```
 
-| Endpoint | Purpose |
-| --- | --- |
-| `GET/POST /api/users`, `GET /api/users/{id}` | List (search, status, tier, page, size, `sort=createdAt\|lastName`), register, read |
-| `PUT /api/users/{id}/profile`, `PUT /api/users/{id}/status` | Edit profile, change lifecycle status — send `If-Match` with the `ETag` you read |
-| `GET /api/notifications?userId=`, `GET /api/notifications/{id}`, `POST /api/notifications` | Read (paged, newest first) and send notifications |
-| `/actuator/health`, `/actuator/modulith` | Health, runtime module graph |
+## Requirements
 
-Every error is an RFC 9457 problem detail with a stable `code` — see
-"Errors" in [docs/architecture.md](docs/architecture.md).
+`curl` and `sh` (macOS, Linux, Git Bash on Windows). The installer adds
+[JBang](https://www.jbang.dev), which runs the CLI. The generated project needs
+Java 17+ to start Gradle — Gradle fetches the chosen JDK itself — and Docker for
+its tests.
 
----
+## Go deeper
 
-## Layout
+- **[docs/architecture.md](docs/architecture.md)** — the rules every generated
+  project follows, and why: modules, layers, events, persistence, REST, testing.
+- **[cli/README.md](cli/README.md)** — how the CLI works: the install script,
+  overlays, releases, developing it.
 
-```
-app/                     the only bootable project — wires modules together at runtime
-shared/                  zero-domain building blocks: envelope, errors, Clock, event registry schema
-modules/users/api    :users-api      public contract (plain Java)
-modules/users/impl   :users-impl     domain · application · infrastructure · web
-modules/notifications/…  :notifications-api / :notifications-impl
-build-logic/             convention plugins every project applies
-gradle/libs.versions.toml
-```
+## Working on the template
 
-`users` is the full reference slice — copy its shape. `notifications`
-shows both ways modules talk: it reacts to `UserRegistered` events and
-calls `UserDirectory` synchronously.
-
-## Useful tasks
+This repository is the template itself, kept building and tested; the CLI
+packs it into every project.
 
 ```bash
-./gradlew :users-impl:test                 # one module, in isolation
-./gradlew :app:test --tests '*ModularityTests' # boundaries + regenerate module diagrams
-                                               # → app/build/spring-modulith-docs/
-./gradlew :app:bootJar                         # the deployable → app/build/libs/
+./gradlew build                               # the template's own tests (needs Docker)
+./gradlew -p cli build                        # the CLI and its tests
+java -jar cli/build/libs/blueprint-cli-*.jar new demo -d /tmp
 ```
 
-## Generating a new project
-
-One command, no clone — it asks for the project name and renames the package,
-the Gradle project and the application class for you. It installs
-[JBang](https://www.jbang.dev) if needed, which brings its own Java:
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/Yacn9/springboot-blueprint/main/install.sh | sh
-```
-
-The tool lives in [`cli/`](cli/README.md), which also explains its options and
-how it is released.
-
-## Making it yours
-
-1. Rename the base package `com.acme.blueprint` (all projects) and
-   `rootProject.name` in `settings.gradle.kts`.
-2. Replace or delete `users` / `notifications`; follow
-   "Adding a New Module" in [docs/architecture.md](docs/architecture.md).
-3. Replace `LoggingNotificationSender` with a real channel.
-4. Production config: `SPRING_DATASOURCE_URL`, `SPRING_DATASOURCE_USERNAME`,
-   `SPRING_DATASOURCE_PASSWORD`.
-
-Not included, on purpose: security, event externalization (Kafka/AMQP) and
-observability. Each fits behind the existing seams — a `web`-level security
-filter chain in `:app`, `@Externalized` events, `spring-modulith-starter-insight`.
-
-## Troubleshooting
-
-**Gradle cannot download JDK 25** ("Unable to download toolchain … foojay"):
-the toolchain is fetched from GitHub release assets, which some networks
-block. Install any JDK 25 yourself and either put it in a standard location
-or point Gradle at it in your *user-level* `~/.gradle/gradle.properties`
-(not the project's):
-
-```properties
-org.gradle.java.installations.paths=C:/path/to/jdk-25
-```
+`.github/workflows/ci.yml` generates a project per database, cache, deployment
+and extra, and runs each one's full build against real containers.

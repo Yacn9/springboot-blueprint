@@ -151,7 +151,9 @@ final class ProjectGenerator {
         String readme = readmeTemplate
                 .replace(README_NAME_PLACEHOLDER, spec.artifact())
                 .replace(README_PACKAGE_PLACEHOLDER, spec.basePackage())
-                .replace(README_DATABASE_PLACEHOLDER, spec.database().displayName());
+                .replace(README_DATABASE_PLACEHOLDER, spec.database().displayName())
+                .replace("{{java}}", spec.versions() != null ? spec.versions().java() : Releases.JAVA_LTS.get(0))
+                .replace("{{spring-boot}}", spec.versions() != null ? spec.versions().springBoot().replaceAll("\\.\\d+$", "") : "4.1");
         Files.writeString(directory.resolve(TEMPLATE_README), Extras.readme(spec, spec.samples() ? readme : SampleModules.readme(readme)), UTF_8);
     }
 }
