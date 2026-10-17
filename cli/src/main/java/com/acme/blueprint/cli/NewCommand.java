@@ -5,6 +5,7 @@ import java.io.PrintWriter;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.stream.Collectors;
 
@@ -50,6 +51,25 @@ final class NewCommand implements Callable<Integer> {
             description = "Keep the sample modules (users, notifications), or start without (--no-samples). Asked for when left out.")
     private Boolean samples;
 
+    @Option(names = "--deploy", paramLabel = "<deploy>",
+            description = "none, docker or kubernetes (Helm chart). Asked for when left out.")
+    private String deploy;
+
+    @Option(names = "--compose", negatable = true, description = "Docker Compose for local services (default), or not.")
+    private Boolean compose;
+
+    @Option(names = "--ci", negatable = true, description = "A GitHub Actions workflow, or not.")
+    private Boolean ci;
+
+    @Option(names = "--security", negatable = true, description = "JWT security (OAuth2 resource server), or not.")
+    private Boolean security;
+
+    @Option(names = "--observability", negatable = true, description = "Prometheus metrics and OpenTelemetry tracing, or not.")
+    private Boolean observability;
+
+    @Option(names = "--dependabot", negatable = true, description = "Dependabot configuration, or not.")
+    private Boolean dependabot;
+
     @Option(names = "--git", negatable = true,
             description = "git init with a first commit, or not (--no-git). Asked for when left out.")
     private Boolean git;
@@ -85,6 +105,22 @@ final class NewCommand implements Callable<Integer> {
                     .withCache(cache != null ? cacheFromOption() : CacheProvider.of(prompter.choose("Cache", CacheProvider.ids())))
                     .withSamples(samples != null ? samples
                             : prompter.confirm("Include the sample modules (users, notifications)?", true));
+            project = project.withExtras(Set.of(Extra.COMPOSE).stream()
+                            .filter(extra -> answer(prompter, compose, extra)).collect(Collectors.toSet()))
+                    .withDeploy(deploy != null ? deploymentFromOption() : Deployment.of(prompter.choose("Deploy", Deployment.ids())));
+            Set<Extra> extras = new java.util.HashSet<>(project.extras());
+            for (Extra extra : List.of(Extra.CI, Extra.SECURITY, Extra.OBSERVABILITY, Extra.DEPENDABOT)) {
+                Boolean option = switch (extra) {
+                    case CI -> ci;
+                    case SECURITY -> security;
+                    case OBSERVABILITY -> observability;
+                    default -> dependabot;
+                };
+                if (answer(prompter, option, extra)) {
+                    extras.add(extra);
+                }
+            }
+            project = project.withExtras(extras);
         }
         boolean initGit = git != null ? git : templateVersions.isPresent()
                 && prompter.confirm("Initialize a git repository with a first commit?", false);
@@ -116,6 +152,19 @@ final class NewCommand implements Callable<Integer> {
                     "Unknown database '" + database + "': choose one of " + String.join(", ", Database.ids()) + ".");
         }
         return Database.of(database);
+    }
+
+    /** The option when given; otherwise asked — Enter takes the extra's default, no answer means only compose. */
+    private static boolean answer(Prompter prompter, Boolean option, Extra extra) {
+        return option != null ? option : prompter.confirm(extra.question(), extra.byDefault(), extra == Extra.COMPOSE);
+    }
+
+    private Deployment deploymentFromOption() {
+        if (!Deployment.ids().contains(deploy)) {
+            throw new ParameterException(spec.commandLine(),
+                    "Unknown deployment '" + deploy + "': choose one of " + String.join(", ", Deployment.ids()) + ".");
+        }
+        return Deployment.of(deploy);
     }
 
     private CacheProvider cacheFromOption() {

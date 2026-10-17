@@ -44,6 +44,12 @@ jbang blueprint@Yacn9/springboot-blueprint new
 | Database | `postgresql` or `oracle` (also `--database <id>`) | postgresql |
 | Cache | `none`, `memory` (Caffeine), `redis` or `memcached` (also `--cache <id>`) | none |
 | Sample modules | keep `users` and `notifications`, or start with no modules (also `--[no-]samples`) | keep |
+| Docker Compose | keep `compose.yaml` (database and cache for `bootRun`) or not (also `--[no-]compose`) | keep |
+| Deploy | `none`, `docker` (Dockerfile; with compose, the app as a compose service under profile `app`) or `kubernetes` (that plus a Helm chart in `deploy/helm/`) — also `--deploy <id>` | none |
+| CI | a GitHub Actions workflow: build and test, plus image and Helm checks when present (`--[no-]ci`) | yes |
+| Security | JWT resource server in `:app`; health, info and OpenAPI stay open; 401/403 as problem details (`--[no-]security`) | no |
+| Observability | Prometheus endpoint and OpenTelemetry tracing (`--[no-]observability`) | yes |
+| Dependabot | weekly updates for Gradle, plus Actions and Docker when present (`--[no-]dependabot`) | yes |
 | Git | `git init` on `main` with one commit, *Initial commit from blueprint new* (also `--[no-]git`); skipped inside an existing repository, undone if the commit fails | yes (no when not asked, e.g. piped input) |
 
 Hibernate, Spring Modulith's runtime and the other managed libraries follow

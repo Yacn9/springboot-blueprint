@@ -67,8 +67,8 @@ class VersionsAndToolsTest {
 
     @Test
     void installsMissingToolsOnlyWhenTheUserAgrees() throws Exception {
-        // Enter ×6 takes the newest versions, PostgreSQL, no cache and the samples; no git; then yes to Java, and yes to Gradle (git has no known installer here).
-        String out = run(tools(Optional.empty(), Optional.of("1.9.5"), false), "my-shop\n\n\n\n\n\n\nn\ny\ny\n");
+        // Enter ×8: newest versions, PostgreSQL, no cache, samples, compose, no deploy; no to the extras and git; then yes to Java, and yes to Gradle (git has no known installer here).
+        String out = run(tools(Optional.empty(), Optional.of("1.9.5"), false), "my-shop\n" + "\n".repeat(8) + "n\n\nn\nn\nn\ny\ny\n");
 
         assertThat(out).contains("java    not found", "git     1.9.5 is too old", "Install git yourself");
         assertThat(installed).containsExactly(

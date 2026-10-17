@@ -22,6 +22,9 @@ jobs:
           - { database: postgresql, cache: redis }
           - { database: postgresql, cache: memcached }
           - { database: oracle, cache: redis, flags: --no-samples }
+          - { database: postgresql, cache: redis, flags: --deploy kubernetes --ci --security --observability --dependabot }
+          - { database: oracle, cache: memcached, flags: --deploy docker --security }
+          - { database: postgresql, cache: none, flags: --deploy docker --no-compose }
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -43,6 +46,34 @@ jobs:
       - name: Build it
         working-directory: ${{ runner.temp }}/ci-app
         run: ./gradlew build --console=plain 2>&1 | tee build.log
+
+      # hashFiles() sees only the workspace, so these steps check for their files themselves.
+      - name: Build the image
+        working-directory: ${{ runner.temp }}/ci-app
+        run: |
+          [ -f Dockerfile ] || { echo "no Dockerfile"; exit 0; }
+          docker build --tag ci-app . 2>&1 | tee -a build.log
+
+      - name: Check the Helm chart
+        working-directory: ${{ runner.temp }}/ci-app
+        run: |
+          [ -d deploy/helm ] || { echo "no Helm chart"; exit 0; }
+          helm lint deploy/helm/* 2>&1 | tee -a build.log
+          helm template deploy/helm/* > /dev/null
+
+      # The image against its compose database (and cache): it must report healthy.
+      - name: Run the full stack
+        working-directory: ${{ runner.temp }}/ci-app
+        run: |
+          [ -f Dockerfile ] && [ -f compose.yaml ] || { echo "no Dockerfile and compose.yaml"; exit 0; }
+          docker compose --profile app up --detach --build
+          for attempt in $(seq 1 60); do
+            if curl --silent --fail localhost:8080/actuator/health | grep -q '"status":"UP"'; then echo healthy; exit 0; fi
+            sleep 5
+          done
+          docker compose --profile app logs app | tail -60 | tee -a build.log
+          echo "What went wrong:" >> build.log; echo "the application never reported healthy" >> build.log
+          exit 1
 
       # Annotations are public, unlike logs: anyone can see why a build failed.
       - name: Report why

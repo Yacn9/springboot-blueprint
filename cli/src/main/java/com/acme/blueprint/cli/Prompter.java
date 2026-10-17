@@ -72,8 +72,14 @@ final class Prompter {
 
     /** Asks yes or no; Enter means yes, the end of the input means {@code whenUnanswered}. */
     boolean confirm(String question, boolean whenUnanswered) {
-        return ask(question + " [Y/n]", answer -> switch (answer.strip().toLowerCase(Locale.ROOT)) {
-            case "", "y", "yes" -> true;
+        return confirm(question, true, whenUnanswered);
+    }
+
+    /** Asks yes or no; Enter means {@code byDefault}, the end of the input {@code whenUnanswered}. */
+    boolean confirm(String question, boolean byDefault, boolean whenUnanswered) {
+        return ask(question + (byDefault ? " [Y/n]" : " [y/N]"), answer -> switch (answer.strip().toLowerCase(Locale.ROOT)) {
+            case "" -> byDefault;
+            case "y", "yes" -> true;
             case "n", "no" -> false;
             default -> throw new IllegalArgumentException("Answer y or n.");
         }).orElse(whenUnanswered);

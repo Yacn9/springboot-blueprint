@@ -212,6 +212,51 @@ class TemplateIntegrationTest {
                 .doesNotContain(":users-api", "reference slice");
     }
 
+    /** Kubernetes and every extra, on Oracle with Memcached: each overlay and edit, renamed alike everywhere. */
+    @Test
+    void generatesEveryDeploymentAndExtra(@TempDir Path work) throws IOException {
+        Path project = generate(ProjectSpec.defaultsFor(ProjectName.fromUserInput("full-shop"))
+                .withDatabase(Database.ORACLE).withCache(CacheProvider.MEMCACHED).withDeploy(Deployment.KUBERNETES)
+                .withExtras(java.util.EnumSet.allOf(Extra.class)), work, realReadme());
+
+        assertThat(project.resolve("Dockerfile")).exists();
+        assertThat(project.resolve(".dockerignore")).exists();
+        assertThat(Files.readString(project.resolve("deploy/helm/full-shop/Chart.yaml"), UTF_8)).contains("name: full-shop");
+        assertThat(Files.readString(project.resolve("deploy/helm/full-shop/values.yaml"), UTF_8))
+                .contains("url: jdbc:oracle:thin:@//database:1521/FREEPDB1");
+        assertThat(Files.readString(project.resolve("compose.yaml"), UTF_8)).contains(
+                "profiles: [\"app\"]", "SPRING_DATASOURCE_URL: jdbc:oracle:thin:@//oracle:1521/FREEPDB1",
+                "FULLSHOP_CACHE_MEMCACHED_SERVERS: memcached:11211", "      - oracle\n      - memcached");
+        assertThat(Files.readString(project.resolve("app/build.gradle.kts"), UTF_8)).contains(
+                "spring-boot-starter-oauth2-resource-server", "spring-boot-starter-security-test",
+                "spring-boot-starter-opentelemetry", "micrometer-registry-prometheus", "spring-boot-docker-compose");
+        assertThat(Files.readString(project.resolve("app/src/main/resources/application.yml"), UTF_8))
+                .contains("include: health, info, modulith, prometheus", "jwk-set-uri: ${JWT_JWK_SET_URI:");
+        assertThat(project.resolve("app/src/main/java/com/fullshop/SecurityConfiguration.java")).exists();
+        assertThat(project.resolve("app/src/test/java/com/fullshop/SecurityTests.java")).exists();
+        assertThat(project.resolve(".github/workflows/build.yml")).exists();
+        assertThat(Files.readString(project.resolve(".github/dependabot.yml"), UTF_8))
+                .contains("package-ecosystem: gradle", "package-ecosystem: github-actions", "package-ecosystem: docker");
+        assertThat(Files.readString(project.resolve("README.md"), UTF_8)).contains("## Kubernetes", "## Security", "## Observability");
+        List<String> offenders = textFiles(project).stream()
+                .filter(file -> !file.toString().endsWith(".md"))
+                .filter(file -> mentions(file, "acme", "blueprint", "BLUEPRINT"))
+                .map(file -> project.relativize(file).toString())
+                .toList();
+        assertThat(offenders).isEmpty();
+    }
+
+    /** Without compose: no compose.yaml, no docker-compose support, a README that says how to point at a database. */
+    @Test
+    void generatesAProjectWithoutCompose(@TempDir Path work) throws IOException {
+        Path project = generate(ProjectSpec.defaultsFor(ProjectName.fromUserInput("plain-shop")).withExtras(java.util.Set.of()),
+                work, realReadme());
+
+        assertThat(project.resolve("compose.yaml")).doesNotExist();
+        assertThat(Files.readString(project.resolve("app/build.gradle.kts"), UTF_8)).doesNotContain("spring-boot-docker-compose");
+        assertThat(Files.readString(project.resolve("README.md"), UTF_8)).contains("set SPRING_DATASOURCE_URL");
+    }
+
     /** A name that contains the blueprint's own word must come out once, not rewritten again. */
     @Test
     void generatesConsistentlyForANameThatContainsBlueprint(@TempDir Path work) throws IOException {

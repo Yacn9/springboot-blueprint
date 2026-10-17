@@ -1,0 +1,8 @@
+# Weekly pull requests for newer dependencies. Spring Boot's BOM manages most
+# versions: updating spring-boot in gradle/libs.versions.toml moves them all.
+version: 2
+updates:
+  - package-ecosystem: gradle
+    directory: /
+    schedule:
+      interval: weekly

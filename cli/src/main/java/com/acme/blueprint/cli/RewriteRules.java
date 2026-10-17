@@ -46,7 +46,9 @@ final class RewriteRules {
                 new Token("blueprint\\.(?=[a-z]+-[a-z])", spec.shortName() + "."));
         List<Token> generic = List.of(
                 literal("Blueprint", spec.classPrefix()),
-                literal("blueprint", spec.shortName()));
+                literal("blueprint", spec.shortName()),
+                // Environment variables: BLUEPRINT_CACHE_MEMCACHED_SERVERS.
+                literal("BLUEPRINT", spec.shortName().toUpperCase(java.util.Locale.ROOT)));
         this.everything = Stream.concat(structural.stream(), generic.stream()).toList();
         this.structuralPattern = alternation(structural);
         this.everythingPattern = alternation(everything);
