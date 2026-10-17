@@ -3,7 +3,7 @@ package com.acme.blueprint.notifications.infrastructure;
 import java.util.Map;
 import java.util.Optional;
 
-import com.acme.blueprint.customers.CustomerId;
+import com.acme.blueprint.users.UserId;
 import com.acme.blueprint.notifications.application.NotificationFinder;
 import com.acme.blueprint.notifications.domain.Notification;
 import com.acme.blueprint.notifications.domain.NotificationId;
@@ -31,7 +31,7 @@ class NotificationPersistenceAdapter implements NotificationRepository, Notifica
         this.jpa = jpa;
     }
 
-    /** Flushes, so the one-welcome-per-customer index fires before anything is sent. */
+    /** Flushes, so the one-welcome-per-user index fires before anything is sent. */
     @Override
     public Notification add(Notification notification) {
         return jpa.saveAndFlush(notification);
@@ -43,12 +43,12 @@ class NotificationPersistenceAdapter implements NotificationRepository, Notifica
     }
 
     @Override
-    public boolean existsByCustomerAndKind(CustomerId customerId, NotificationKind kind) {
-        return jpa.existsByCustomerIdAndKind(customerId.value(), kind);
+    public boolean existsByUserAndKind(UserId userId, NotificationKind kind) {
+        return jpa.existsByUserIdAndKind(userId.value(), kind);
     }
 
     @Override
-    public Page<Notification> findForCustomer(CustomerId customerId, Pageable pageable) {
-        return jpa.findByCustomerIdOrderByCreatedAtDesc(customerId.value(), SORTING.translate(pageable));
+    public Page<Notification> findForUser(UserId userId, Pageable pageable) {
+        return jpa.findByUserIdOrderByCreatedAtDesc(userId.value(), SORTING.translate(pageable));
     }
 }

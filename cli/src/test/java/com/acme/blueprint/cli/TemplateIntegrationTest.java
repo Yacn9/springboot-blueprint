@@ -36,7 +36,11 @@ class TemplateIntegrationTest {
     }
 
     private static Path generateNamed(String name, Path work) {
-        ProjectSpec spec = ProjectSpec.defaultsFor(ProjectName.fromUserInput(name));
+        return generate(ProjectSpec.defaultsFor(ProjectName.fromUserInput(name)), work);
+    }
+
+    private static Path generate(ProjectSpec spec, Path work) {
+        String name = spec.artifact();
         ProjectTemplate template = new ProjectTemplate(TemplateIntegrationTest::openArchive, "# {{name}}\n\nBase package {{package}}\n");
         return GENERATOR.generate(template, spec, work.resolve(name)).directory();
     }
@@ -66,10 +70,10 @@ class TemplateIntegrationTest {
 
     @Test
     void movesTheCodeIntoTheNewPackage() throws IOException {
-        Path customer = project.resolve("modules/customers/impl/src/main/java/com/myshop/customers/domain/Customer.java");
+        Path user = project.resolve("modules/users/impl/src/main/java/com/myshop/users/domain/User.java");
 
-        assertThat(Files.readString(customer, UTF_8)).startsWith("package com.myshop.customers.domain;");
-        assertThat(project.resolve("modules/customers/api/src/main/java/com/myshop/customers/CustomerDirectory.java")).exists();
+        assertThat(Files.readString(user, UTF_8)).startsWith("package com.myshop.users.domain;");
+        assertThat(project.resolve("modules/users/api/src/main/java/com/myshop/users/UserDirectory.java")).exists();
         assertThat(project.resolve("shared/src/main/java/com/myshop/shared/ConstraintViolations.java")).exists();
         assertThat(project.resolve("com")).doesNotExist();
     }
@@ -88,7 +92,7 @@ class TemplateIntegrationTest {
         assertThat(project.resolve("build-logic/src/main/kotlin/myshop.java-conventions.gradle.kts")).exists();
         assertThat(Files.readString(project.resolve("app/build.gradle.kts"), UTF_8))
                 .contains("id(\"myshop.spring-boot-application\")");
-        assertThat(Files.readString(project.resolve("modules/customers/impl/build.gradle.kts"), UTF_8))
+        assertThat(Files.readString(project.resolve("modules/users/impl/build.gradle.kts"), UTF_8))
                 .contains("id(\"myshop.module-impl\")");
     }
 
@@ -123,11 +127,38 @@ class TemplateIntegrationTest {
         assertThat(project.resolve("cli")).doesNotExist();
         assertThat(project.resolve("install.sh")).doesNotExist();
         assertThat(project.resolve("jbang-catalog.json")).doesNotExist();
+        assertThat(project.resolve("overlays")).doesNotExist();
         assertThat(project.resolve(".github")).doesNotExist();
         assertThat(project.resolve(".git")).doesNotExist();
         assertThat(project.resolve(".claude")).doesNotExist();
         assertThat(project.resolve("app/build")).doesNotExist();
         assertThat(project.resolve("build-logic/.gradle")).doesNotExist();
+    }
+
+    /**
+     * The Oracle overlay replaces every vendor spot the architecture document
+     * lists and adds the privilege script; whatever still names PostgreSQL
+     * outside Markdown prose was missed. Whether the result builds is CI's
+     * job: it needs Docker and an Oracle container.
+     */
+    @Test
+    void generatesAnOracleProjectWithNothingLeftOfPostgresql(@TempDir Path work) throws IOException {
+        Path oracle = generate(ProjectSpec.defaultsFor(ProjectName.fromUserInput("oracle-shop")).withDatabase(Database.ORACLE), work);
+
+        List<String> offenders = textFiles(oracle).stream()
+                .filter(file -> !file.toString().endsWith(".md"))
+                .filter(file -> mentions(file, "postgres", "acme", "blueprint"))
+                // Vendor-neutral by design: it normalises the constraint names both databases report.
+                .filter(file -> !file.getFileName().toString().startsWith("ConstraintViolations"))
+                .map(file -> oracle.relativize(file).toString())
+                .toList();
+        assertThat(offenders).isEmpty();
+        assertThat(Files.readString(oracle.resolve("gradle/libs.versions.toml"), UTF_8))
+                .contains("gvenzl/oracle-free:23-slim-faststart", "ojdbc17", "flyway-database-oracle", "testcontainers-oracle-free");
+        assertThat(Files.readString(oracle.resolve("compose.yaml"), UTF_8)).contains("APP_USER: oracleshop");
+        assertThat(Files.readString(oracle.resolve("shared/src/testDatabase/resources/oracle-init/01-privileges.sql"), UTF_8))
+                .contains("TO oracleshop;");
+        assertThat(oracle.resolve("overlays")).doesNotExist();
     }
 
     /** A name that contains the blueprint's own word must come out once, not rewritten again. */

@@ -42,7 +42,7 @@ class ProjectGeneratorTest {
         entries.put("app/build.gradle.kts", text("plugins { id(\"blueprint.spring-boot-application\") }\n"));
         entries.put("app/src/main/java/com/acme/blueprint/BlueprintApplication.java",
                 text("package com.acme.blueprint;\nclass BlueprintApplication {}\n"));
-        entries.put("docs/architecture.md", text("A blueprint with com.acme.blueprint.customers inside.\n"));
+        entries.put("docs/architecture.md", text("A blueprint with com.acme.blueprint.users inside.\n"));
         return entries;
     }
 
@@ -125,7 +125,7 @@ class ProjectGeneratorTest {
         generate(sampleTemplate(), target);
 
         assertThat(Files.readString(target.resolve("docs/architecture.md"), UTF_8))
-                .isEqualTo("A blueprint with com.myshop.customers inside.\n");
+                .isEqualTo("A blueprint with com.myshop.users inside.\n");
     }
 
     @Test

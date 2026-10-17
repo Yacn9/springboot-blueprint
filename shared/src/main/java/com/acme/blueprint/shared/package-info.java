@@ -4,6 +4,6 @@
  * sub-packages ({@code web}, {@code time}) are internal and only contribute beans.
  *
  * <p>Nothing here may know about a business domain. If a type mentions a
- * customer, an order or a notification, it belongs in that module instead.
+ * user, an order or a notification, it belongs in that module instead.
  */
 package com.acme.blueprint.shared;

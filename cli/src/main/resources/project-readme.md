@@ -14,7 +14,7 @@ and Docker (for the database and the integration tests).
 
 ```bash
 ./gradlew build            # compile, unit + module + architecture + end-to-end tests
-./gradlew :app:bootRun     # starts PostgreSQL from compose.yaml, then the app on :8080
+./gradlew :app:bootRun     # starts {{database}} from compose.yaml, then the app on :8080
 ```
 
 On Windows PowerShell or cmd, write `.\gradlew` instead of `./gradlew`.
@@ -26,16 +26,16 @@ Then open <http://localhost:8080/swagger-ui.html>.
 ```
 app/                     the only bootable project — wires modules together at runtime
 shared/                  zero-domain building blocks: envelope, errors, Clock, event registry schema
-modules/customers/api    :customers-api      public contract (plain Java)
-modules/customers/impl   :customers-impl     domain · application · infrastructure · web
+modules/users/api    :users-api      public contract (plain Java)
+modules/users/impl   :users-impl     domain · application · infrastructure · web
 modules/notifications/…  :notifications-api / :notifications-impl
 build-logic/             convention plugins every project applies
 gradle/libs.versions.toml
 ```
 
-`customers` is the full reference slice — copy its shape. `notifications`
-shows both ways modules talk: it reacts to `CustomerRegistered` events and
-calls `CustomerDirectory` synchronously. Replace or delete both once you have
+`users` is the full reference slice — copy its shape. `notifications`
+shows both ways modules talk: it reacts to `UserRegistered` events and
+calls `UserDirectory` synchronously. Replace or delete both once you have
 your own modules; "Adding a New Module" in the architecture document lists the
 steps.
 

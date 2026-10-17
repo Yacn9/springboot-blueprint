@@ -9,11 +9,12 @@ package com.acme.blueprint.cli;
  * @param name        what the user calls the project
  * @param basePackage the Java base package, such as {@code com.myshop}
  * @param versions    the Java, Spring Boot and Gradle versions to pin; null keeps the template's
+ * @param database    the database the project runs on
  */
-record ProjectSpec(ProjectName name, String basePackage, ProjectVersions versions) {
+record ProjectSpec(ProjectName name, String basePackage, ProjectVersions versions, Database database) {
 
     ProjectSpec(ProjectName name, String basePackage) {
-        this(name, basePackage, null);
+        this(name, basePackage, null, Database.POSTGRESQL);
     }
 
     /** The defaults for a project named only by its name. */
@@ -22,7 +23,11 @@ record ProjectSpec(ProjectName name, String basePackage, ProjectVersions version
     }
 
     ProjectSpec withVersions(ProjectVersions chosen) {
-        return new ProjectSpec(name, basePackage, chosen);
+        return new ProjectSpec(name, basePackage, chosen, database);
+    }
+
+    ProjectSpec withDatabase(Database chosen) {
+        return new ProjectSpec(name, basePackage, versions, chosen);
     }
 
     /** The Gradle project and the directory: {@code my-shop}. */

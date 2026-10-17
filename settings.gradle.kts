@@ -20,7 +20,7 @@ rootProject.name = "modular-monolith-blueprint"
  * modules compile against) and `<name>-impl` (everything else). They live in
  * `modules/<name>/api` and `modules/<name>/impl`.
  *
- * Project names stay globally unique (`customers-api`, never just `api`) —
+ * Project names stay globally unique (`users-api`, never just `api`) —
  * Gradle conflates projects that share a name and group.
  */
 fun businessModule(name: String) {
@@ -32,5 +32,5 @@ fun businessModule(name: String) {
 
 include(":app", ":shared")
 
-businessModule("customers")
+businessModule("users")
 businessModule("notifications")

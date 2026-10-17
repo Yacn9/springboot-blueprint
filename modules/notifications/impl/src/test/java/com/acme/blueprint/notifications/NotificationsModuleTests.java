@@ -8,12 +8,12 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 
-import com.acme.blueprint.customers.CustomerDirectory;
-import com.acme.blueprint.customers.CustomerId;
-import com.acme.blueprint.customers.CustomerRegistered;
-import com.acme.blueprint.customers.CustomerSummary;
+import com.acme.blueprint.users.UserDirectory;
+import com.acme.blueprint.users.UserId;
+import com.acme.blueprint.users.UserRegistered;
+import com.acme.blueprint.users.UserSummary;
 import com.acme.blueprint.notifications.application.NotificationManagement;
-import com.acme.blueprint.notifications.application.UnknownCustomerException;
+import com.acme.blueprint.notifications.application.UnknownUserException;
 import com.acme.blueprint.notifications.domain.InvalidNotificationException;
 import com.acme.blueprint.notifications.domain.Notification;
 import com.acme.blueprint.notifications.domain.NotificationKind;
@@ -28,7 +28,7 @@ import org.springframework.modulith.test.Scenario;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 /**
- * Boots the notifications module alone. The customers module is not even on
+ * Boots the notifications module alone. The users module is not even on
  * the classpath — only its -api contract is — so the directory is mocked and
  * the event is published by the test, exactly as the real module would.
  */
@@ -37,16 +37,16 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 class NotificationsModuleTests {
 
     @MockitoBean
-    CustomerDirectory customers;
+    UserDirectory users;
 
     @Autowired
     NotificationManagement notifications;
 
     @Test
-    void welcomesANewlyRegisteredCustomer(Scenario scenario) {
-        CustomerId id = CustomerId.newId();
+    void welcomesANewlyRegisteredUser(Scenario scenario) {
+        UserId id = UserId.newId();
 
-        scenario.publish(new CustomerRegistered(id, "Ali Rezaei", "ali@example.com", Instant.now()))
+        scenario.publish(new UserRegistered(id, "Ali Rezaei", "ali@example.com", Instant.now()))
                 .andWaitForStateChange(() -> sentTo(id), list -> !list.isEmpty())
                 .andVerify((List<Notification> sent) -> assertThat(sent).singleElement().satisfies(notification -> {
                     assertThat(notification.kind()).isEqualTo(NotificationKind.WELCOME);
@@ -57,8 +57,8 @@ class NotificationsModuleTests {
     }
 
     @Test
-    void welcomesEachCustomerOnlyOnceWhenTheEventIsRedelivered() {
-        CustomerId id = CustomerId.newId();
+    void welcomesEachUserOnlyOnceWhenTheEventIsRedelivered() {
+        UserId id = UserId.newId();
 
         notifications.sendWelcome(id, "Twice", "twice@example.com");
         notifications.sendWelcome(id, "Twice", "twice@example.com");
@@ -67,38 +67,38 @@ class NotificationsModuleTests {
     }
 
     @Test
-    void looksUpTheRecipientThroughTheCustomerDirectory() {
-        CustomerId id = CustomerId.newId();
-        given(customers.findById(id))
-                .willReturn(Optional.of(new CustomerSummary(id, "Sara Ahmadi", "sara@example.com", "09121234567")));
+    void looksUpTheRecipientThroughTheUserDirectory() {
+        UserId id = UserId.newId();
+        given(users.findById(id))
+                .willReturn(Optional.of(new UserSummary(id, "Sara Ahmadi", "sara@example.com", "09121234567")));
 
-        Notification notification = notifications.sendToCustomer(id, "Statement ready", "Your statement is ready.");
+        Notification notification = notifications.sendToUser(id, "Statement ready", "Your statement is ready.");
 
         assertThat(notification.recipient()).isEqualTo("sara@example.com");
         assertThat(notifications.get(notification.id()).kind()).isEqualTo(NotificationKind.AD_HOC);
     }
 
     @Test
-    void refusesToNotifyAnUnknownCustomer() {
-        CustomerId id = CustomerId.newId();
-        given(customers.findById(id)).willReturn(Optional.empty());
+    void refusesToNotifyAnUnknownUser() {
+        UserId id = UserId.newId();
+        given(users.findById(id)).willReturn(Optional.empty());
 
-        assertThatThrownBy(() -> notifications.sendToCustomer(id, "Hello", "Body"))
-                .isInstanceOf(UnknownCustomerException.class);
+        assertThatThrownBy(() -> notifications.sendToUser(id, "Hello", "Body"))
+                .isInstanceOf(UnknownUserException.class);
     }
 
     @Test
     void enforcesContentRulesOutsideTheWebLayerToo() {
-        CustomerId id = CustomerId.newId();
-        given(customers.findById(id))
-                .willReturn(Optional.of(new CustomerSummary(id, "Sara Ahmadi", "sara@example.com", "09121234567")));
+        UserId id = UserId.newId();
+        given(users.findById(id))
+                .willReturn(Optional.of(new UserSummary(id, "Sara Ahmadi", "sara@example.com", "09121234567")));
 
-        assertThatThrownBy(() -> notifications.sendToCustomer(id, "x".repeat(Notification.SUBJECT_MAX_LENGTH + 1), "Body"))
+        assertThatThrownBy(() -> notifications.sendToUser(id, "x".repeat(Notification.SUBJECT_MAX_LENGTH + 1), "Body"))
                 .isInstanceOf(InvalidNotificationException.class);
         assertThat(sentTo(id)).isEmpty();
     }
 
-    private List<Notification> sentTo(CustomerId id) {
-        return notifications.findForCustomer(id, PageRequest.of(0, 10)).getContent();
+    private List<Notification> sentTo(UserId id) {
+        return notifications.findForUser(id, PageRequest.of(0, 10)).getContent();
     }
 }

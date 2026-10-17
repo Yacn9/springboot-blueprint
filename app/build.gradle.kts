@@ -8,7 +8,7 @@ dependencies {
 
     // Modules are runtime-only: :app wires them together but cannot compile
     // against a single class inside them.
-    runtimeOnly(project(":customers-impl"))
+    runtimeOnly(project(":users-impl"))
     runtimeOnly(project(":notifications-impl"))
 
     runtimeOnly("org.springframework.boot:spring-boot-starter-actuator")

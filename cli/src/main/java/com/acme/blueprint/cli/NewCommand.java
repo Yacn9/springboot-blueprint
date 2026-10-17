@@ -38,6 +38,10 @@ final class NewCommand implements Callable<Integer> {
                     + "Default: the current directory.")
     private Path parentDirectory;
 
+    @Option(names = "--database", paramLabel = "<database>",
+            description = "postgresql or oracle. Asked for when left out.")
+    private String database;
+
     @Spec
     private CommandSpec spec;
 
@@ -64,7 +68,8 @@ final class NewCommand implements Callable<Integer> {
         ProjectSpec project = ProjectSpec.defaultsFor(name);
         Optional<ProjectVersions> templateVersions = ProjectVersions.of(template);
         if (templateVersions.isPresent()) {
-            project = project.withVersions(chooseVersions(prompter, templateVersions.get()));
+            project = project.withVersions(chooseVersions(prompter, templateVersions.get()))
+                    .withDatabase(database != null ? databaseFromOption() : Database.of(prompter.choose("Database", Database.ids())));
         }
         checkTools(prompter, out, project.versions());
 
@@ -81,6 +86,14 @@ final class NewCommand implements Callable<Integer> {
         } catch (InvalidProjectNameException invalid) {
             throw new ParameterException(spec.commandLine(), invalid.getMessage(), invalid);
         }
+    }
+
+    private Database databaseFromOption() {
+        if (!Database.ids().contains(database)) {
+            throw new ParameterException(spec.commandLine(),
+                    "Unknown database '" + database + "': choose one of " + String.join(", ", Database.ids()) + ".");
+        }
+        return Database.of(database);
     }
 
     private ProjectName nameFromPrompt(Prompter prompter) {
@@ -154,8 +167,8 @@ final class NewCommand implements Callable<Integer> {
 
     private void printSummary(PrintWriter out, ProjectSpec project, GeneratedProject generated) {
         out.println();
-        out.printf("Created %s in %s (%d files, base package %s).%n",
-                project.artifact(), generated.directory(), generated.fileCount(), project.basePackage());
+        out.printf("Created %s in %s (%d files, base package %s, %s).%n", project.artifact(), generated.directory(),
+                generated.fileCount(), project.basePackage(), project.database().displayName());
         out.println();
         out.println("Next steps:");
         out.println("  cd " + whereToEnter(project, generated));

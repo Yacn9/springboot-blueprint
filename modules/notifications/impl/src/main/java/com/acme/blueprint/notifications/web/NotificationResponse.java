@@ -8,7 +8,7 @@ import com.acme.blueprint.notifications.domain.NotificationKind;
 
 record NotificationResponse(
         UUID id,
-        UUID customerId,
+        UUID userId,
         NotificationKind kind,
         String recipient,
         String subject,
@@ -19,7 +19,7 @@ record NotificationResponse(
     static NotificationResponse from(Notification notification) {
         return new NotificationResponse(
                 notification.id().value(),
-                notification.customerId().value(),
+                notification.userId().value(),
                 notification.kind(),
                 notification.recipient(),
                 notification.subject(),

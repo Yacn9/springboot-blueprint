@@ -7,8 +7,8 @@ import org.hibernate.exception.ConstraintViolationException;
  * persistence adapter can turn it into a business exception.
  *
  * <p>This is the one place that knows how databases spell a constraint's name:
- * PostgreSQL reports {@code customer_national_code_uk}, Oracle
- * {@code CUSTOMERS.CUSTOMER_NATIONAL_CODE_UK}. Names are compared without any
+ * PostgreSQL reports {@code user_national_code_uk}, Oracle
+ * {@code USERS.USER_NATIONAL_CODE_UK}. Names are compared without any
  * schema qualifier and ignoring case, so adapters pass the name exactly as the
  * migration declares it.
  *

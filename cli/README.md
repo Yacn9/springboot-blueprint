@@ -41,6 +41,7 @@ jbang blueprint@Yacn9/springboot-blueprint new
 | Java version | the LTS releases the template compiles on: 25, 21 | the newest |
 | Spring Boot version | the template's and newer releases of its major line (4.x), up to 3, from Maven Central | the newest |
 | Gradle version | the template's and the current release, if it is of the same major line (9.x) | the newest |
+| Database | `postgresql` or `oracle` (also `--database <id>`) | postgresql |
 
 Hibernate, Spring Modulith's runtime and the other managed libraries follow
 from the Spring Boot version (its BOM). A question with one choice is shown,
@@ -151,6 +152,14 @@ rewritten twice:
 2. **Every remaining `blueprint`** (everything except Markdown, where it is
    ordinary prose).
 
+A database other than PostgreSQL is an **overlay**: the files under
+`overlays/<database>/` replace the template's at the same paths, or join them
+(Oracle's privilege script), and `Database` rewrites the catalog's `database-*`
+entries. No `overlays/` directory reaches any generated project. The repository's
+own build never compiles an overlay — `.github/workflows/ci.yml` generates a
+project per database and runs its full build, and `TemplateIntegrationTest`
+checks that an Oracle project names PostgreSQL nowhere.
+
 Whatever is not UTF-8 text — the Gradle wrapper jar — is copied byte for byte.
 `README.md` is replaced by the generated project's own. The template is always
 the repository as it is, so it cannot drift from what the repository's build
@@ -175,7 +184,7 @@ cd /tmp/demo-app && ./gradlew build
 
 ## Not yet
 
-Asking for a base package, a database, or Maven instead of Gradle,
+Asking for a base package, or Maven instead of Gradle,
 `blueprint doctor`, and adding a module to an existing project. Each fits the same structure: more answers in `ProjectSpec`, more
 tokens in `RewriteRules`. Maven and Oracle also need *overlays* — files the
 template does not have, or has in another form — and with the first one the

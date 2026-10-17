@@ -16,8 +16,8 @@ class RewriteRulesTest {
 
     @Test
     void rewritesThePackageInPaths() {
-        assertThat(rules.path("modules/customers/impl/src/main/java/com/acme/blueprint/customers/domain/Customer.java"))
-                .isEqualTo("modules/customers/impl/src/main/java/com/myshop/customers/domain/Customer.java");
+        assertThat(rules.path("modules/users/impl/src/main/java/com/acme/blueprint/users/domain/User.java"))
+                .isEqualTo("modules/users/impl/src/main/java/com/myshop/users/domain/User.java");
     }
 
     @Test
@@ -47,8 +47,8 @@ class RewriteRulesTest {
 
     @Test
     void rewritesPackagesAndImports() {
-        assertThat(rules.content("package com.acme.blueprint.customers;\nimport com.acme.blueprint.shared.SortMapping;", false))
-                .isEqualTo("package com.myshop.customers;\nimport com.myshop.shared.SortMapping;");
+        assertThat(rules.content("package com.acme.blueprint.users;\nimport com.acme.blueprint.shared.SortMapping;", false))
+                .isEqualTo("package com.myshop.users;\nimport com.myshop.shared.SortMapping;");
     }
 
     @Test

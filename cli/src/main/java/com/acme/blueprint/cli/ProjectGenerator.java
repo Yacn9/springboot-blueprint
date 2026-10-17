@@ -9,6 +9,8 @@ import java.nio.charset.CharacterCodingException;
 import java.nio.charset.CodingErrorAction;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.Optional;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
@@ -23,6 +25,7 @@ final class ProjectGenerator {
     private static final String TEMPLATE_README = "README.md";
     private static final String README_NAME_PLACEHOLDER = "{{name}}";
     private static final String README_PACKAGE_PLACEHOLDER = "{{package}}";
+    private static final String README_DATABASE_PLACEHOLDER = "{{database}}";
 
     /** Files that start with this many bytes free of NUL are text; anything else is copied untouched. */
     private static final int BINARY_SNIFF_LENGTH = 8000;
@@ -38,7 +41,7 @@ final class ProjectGenerator {
         TargetDirectory directory = TargetDirectory.claim(target);
         try (InputStream archive = template.archive().get()) {
             directory.create();
-            int files = unpack(archive, new RewriteRules(spec), spec.versions(), directory);
+            int files = unpack(archive, overlay(template, spec.database()), new RewriteRules(spec), spec, directory);
             writeReadme(template.readme(), spec, directory);
             return new GeneratedProject(directory.path(), files + 1);
         } catch (IOException | RuntimeException failure) {
@@ -50,31 +53,60 @@ final class ProjectGenerator {
         }
     }
 
-    private static int unpack(InputStream archive, RewriteRules rules, ProjectVersions versions, TargetDirectory directory)
-            throws IOException {
+    /**
+     * Writes every template file, renamed — the database's overlay file instead
+     * where it has one, then the overlay files the template lacks. No overlay
+     * itself reaches the project.
+     */
+    private static int unpack(InputStream archive, Map<String, byte[]> overlay, RewriteRules rules, ProjectSpec spec,
+            TargetDirectory directory) throws IOException {
         int files = 0;
         ZipInputStream zip = new ZipInputStream(archive);
         for (ZipEntry entry = zip.getNextEntry(); entry != null; entry = zip.getNextEntry()) {
             String source = entry.getName();
-            if (entry.isDirectory() || source.equals(TEMPLATE_README)) {
+            if (entry.isDirectory() || source.equals(TEMPLATE_README) || source.startsWith(Database.OVERLAYS)) {
                 continue;
             }
-            Path file = directory.resolve(rules.path(source));
-            Files.createDirectories(file.getParent());
-            Files.write(file, rewritten(zip.readAllBytes(), source, rules, versions));
-            if (file.getFileName().toString().equals("gradlew")) {
-                file.toFile().setExecutable(true);
-            }
+            byte[] content = overlay.containsKey(source) ? overlay.remove(source) : zip.readAllBytes();
+            write(source, content, rules, spec, directory);
+            files++;
+        }
+        for (Map.Entry<String, byte[]> added : overlay.entrySet()) {
+            write(added.getKey(), added.getValue(), rules, spec, directory);
             files++;
         }
         return files;
     }
 
+    /** The overlay's files for this database, keyed by the template path they replace or add. */
+    private static Map<String, byte[]> overlay(ProjectTemplate template, Database database) throws IOException {
+        Map<String, byte[]> files = new LinkedHashMap<>();
+        try (InputStream archive = template.archive().get(); ZipInputStream zip = new ZipInputStream(archive)) {
+            for (ZipEntry entry = zip.getNextEntry(); entry != null; entry = zip.getNextEntry()) {
+                if (!entry.isDirectory() && entry.getName().startsWith(database.overlay())) {
+                    files.put(entry.getName().substring(database.overlay().length()), zip.readAllBytes());
+                }
+            }
+        }
+        return files;
+    }
+
+    private static void write(String source, byte[] content, RewriteRules rules, ProjectSpec spec, TargetDirectory directory)
+            throws IOException {
+        Path file = directory.resolve(rules.path(source));
+        Files.createDirectories(file.getParent());
+        Files.write(file, rewritten(content, source, rules, spec));
+        if (file.getFileName().toString().equals("gradlew")) {
+            file.toFile().setExecutable(true);
+        }
+    }
+
     /** Text is renamed as UTF-8; whatever is not text (the Gradle wrapper jar) passes through byte for byte. */
-    private static byte[] rewritten(byte[] content, String source, RewriteRules rules, ProjectVersions versions) {
+    private static byte[] rewritten(byte[] content, String source, RewriteRules rules, ProjectSpec spec) {
         return asText(content)
                 .map(text -> rules.content(text, source.endsWith(".md")))
-                .map(text -> versions == null ? text : versions.pin(source, text))
+                .map(text -> spec.versions() == null ? text : spec.versions().pin(source, text))
+                .map(text -> spec.database().pin(source, text))
                 .map(text -> text.getBytes(UTF_8))
                 .orElse(content);
     }
@@ -99,7 +131,8 @@ final class ProjectGenerator {
     private static void writeReadme(String readmeTemplate, ProjectSpec spec, TargetDirectory directory) throws IOException {
         String readme = readmeTemplate
                 .replace(README_NAME_PLACEHOLDER, spec.artifact())
-                .replace(README_PACKAGE_PLACEHOLDER, spec.basePackage());
+                .replace(README_PACKAGE_PLACEHOLDER, spec.basePackage())
+                .replace(README_DATABASE_PLACEHOLDER, spec.database().displayName());
         Files.writeString(directory.resolve(TEMPLATE_README), readme, UTF_8);
     }
 }

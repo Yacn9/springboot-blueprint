@@ -8,14 +8,14 @@ import java.util.regex.Pattern;
  * switch; modules extend a category, never this class.
  *
  * <p>{@link #code()} is a stable, machine-readable identifier such as
- * {@code customers.not-found}. Clients key translations off the code — the
+ * {@code users.not-found}. Clients key translations off the code — the
  * message is for logs and developers and may change at any time.
  */
 public abstract sealed class BusinessException extends RuntimeException
         permits InvalidRequestException, ResourceNotFoundException, ConflictException,
                 PreconditionFailedException, BusinessRuleViolationException {
 
-    /** {@code <area>.<kebab-case-name>}, e.g. {@code customers.not-found}. */
+    /** {@code <area>.<kebab-case-name>}, e.g. {@code users.not-found}. */
     private static final Pattern CODE_FORMAT = Pattern.compile("[a-z]+(\\.[a-z0-9-]+)+");
 
     private final String code;

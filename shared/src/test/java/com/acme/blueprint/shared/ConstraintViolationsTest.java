@@ -13,18 +13,18 @@ import org.springframework.dao.DataIntegrityViolationException;
 /** The spellings each database reports for the same constraint — see {@link ConstraintViolations}. */
 class ConstraintViolationsTest {
 
-    private static final String CONSTRAINT = "customer_national_code_uk";
+    private static final String CONSTRAINT = "user_national_code_uk";
 
     @ParameterizedTest
     @ValueSource(strings = {
-            "customer_national_code_uk",                    // PostgreSQL
-            "CUSTOMERS.CUSTOMER_NATIONAL_CODE_UK"})         // Oracle: schema-qualified, upper case
+            "user_national_code_uk",                    // PostgreSQL
+            "USERS.USER_NATIONAL_CODE_UK"})         // Oracle: schema-qualified, upper case
     void recognisesTheConstraintHoweverTheDatabaseNamesIt(String reportedName) {
         assertThat(ConstraintViolations.isViolationOf(wrapped(reportedName), CONSTRAINT)).isTrue();
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"customer_pkey", "CUSTOMERS.SYS_C0012345", "customer_national_code_uk_old"})
+    @ValueSource(strings = {"user_pkey", "USERS.SYS_C0012345", "user_national_code_uk_old"})
     void ignoresAnyOtherConstraint(String reportedName) {
         assertThat(ConstraintViolations.isViolationOf(wrapped(reportedName), CONSTRAINT)).isFalse();
     }

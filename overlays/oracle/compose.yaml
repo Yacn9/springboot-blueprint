@@ -1,0 +1,19 @@
+# Local development database. `./gradlew :app:bootRun` starts it automatically
+# (spring-boot-docker-compose) and points the DataSource at it — the
+# application user in the FREEPDB1 pluggable database. The host port is random
+# to avoid clashing with a local Oracle; `docker compose ps` shows it. Keep the
+# image in sync with database-image in gradle/libs.versions.toml, which the
+# tests use. The first start takes a minute or two. This file is one of the
+# database-vendor spots listed in docs/architecture.md.
+services:
+  oracle:
+    image: gvenzl/oracle-free:23-slim-faststart
+    environment:
+      ORACLE_PASSWORD: blueprint
+      APP_USER: blueprint
+      APP_USER_PASSWORD: blueprint
+    ports:
+      - "1521"
+    volumes:
+      # The same privileges the tests' container gets: see the script.
+      - ./shared/src/testDatabase/resources/oracle-init:/container-entrypoint-initdb.d:ro

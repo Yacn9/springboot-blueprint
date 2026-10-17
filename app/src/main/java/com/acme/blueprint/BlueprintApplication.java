@@ -6,7 +6,7 @@ import org.springframework.modulith.Modulithic;
 
 /**
  * Composition root. Every direct sub-package of {@code com.acme.blueprint} —
- * {@code customers}, {@code notifications}, {@code shared} — is an
+ * {@code users}, {@code notifications}, {@code shared} — is an
  * application module in Spring Modulith's sense. This project contains no
  * business code and depends on the modules at runtime only.
  */

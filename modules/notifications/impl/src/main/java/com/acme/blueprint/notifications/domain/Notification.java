@@ -4,7 +4,7 @@ import java.time.Instant;
 import java.util.UUID;
 import java.util.regex.Pattern;
 
-import com.acme.blueprint.customers.CustomerId;
+import com.acme.blueprint.users.UserId;
 
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -14,8 +14,8 @@ import jakarta.persistence.Table;
 import jakarta.persistence.Version;
 
 /**
- * A message to one customer. It references the customer by id only — there
- * is no foreign key into the customers schema, because modules own their
+ * A message to one user. It references the user by id only — there
+ * is no foreign key into the users schema, because modules own their
  * data and may only meet through contracts.
  *
  * <p>The content rules below are the single source of truth; the web DTO
@@ -28,7 +28,7 @@ public class Notification {
     public static final int RECIPIENT_MAX_LENGTH = 254;
     public static final int SUBJECT_MAX_LENGTH = 200;
     public static final int BODY_MAX_LENGTH = 2000;
-    /** Same shape rule as the customers module; each module owns its own copy rather than sharing a type. */
+    /** Same shape rule as the users module; each module owns its own copy rather than sharing a type. */
     public static final String RECIPIENT_PATTERN = "[^@\\s]+@[^@\\s]+\\.[^@\\s]+";
 
     private static final Pattern RECIPIENT = Pattern.compile(RECIPIENT_PATTERN);
@@ -39,7 +39,7 @@ public class Notification {
     @Version
     private Long version;
 
-    private UUID customerId;
+    private UUID userId;
 
     @Enumerated(EnumType.STRING)
     private NotificationKind kind;
@@ -59,9 +59,9 @@ public class Notification {
     }
 
     private Notification(
-            CustomerId customerId, NotificationKind kind, String recipient, String subject, String body, Instant now) {
+            UserId userId, NotificationKind kind, String recipient, String subject, String body, Instant now) {
         this.id = NotificationId.newId().value();
-        this.customerId = customerId.value();
+        this.userId = userId.value();
         this.kind = kind;
         this.recipient = requireText("recipient", recipient, RECIPIENT_MAX_LENGTH);
         if (!RECIPIENT.matcher(recipient).matches()) {
@@ -73,17 +73,17 @@ public class Notification {
     }
 
     /**
-     * Parameters follow {@code CustomerRegistered}'s order, so the listener maps
+     * Parameters follow {@code UserRegistered}'s order, so the listener maps
      * field for field. In both factories the address comes right before the
      * timestamp.
      */
-    public static Notification welcome(CustomerId customerId, String fullName, String email, Instant now) {
-        return new Notification(customerId, NotificationKind.WELCOME, email,
+    public static Notification welcome(UserId userId, String fullName, String email, Instant now) {
+        return new Notification(userId, NotificationKind.WELCOME, email,
                 "Welcome aboard", "Hello %s, your account has been created.".formatted(fullName), now);
     }
 
-    public static Notification adHoc(CustomerId customerId, String subject, String body, String email, Instant now) {
-        return new Notification(customerId, NotificationKind.AD_HOC, email, subject, body, now);
+    public static Notification adHoc(UserId userId, String subject, String body, String email, Instant now) {
+        return new Notification(userId, NotificationKind.AD_HOC, email, subject, body, now);
     }
 
     public void markSent(Instant now) {
@@ -101,8 +101,8 @@ public class Notification {
         return new NotificationId(id);
     }
 
-    public CustomerId customerId() {
-        return new CustomerId(customerId);
+    public UserId userId() {
+        return new UserId(userId);
     }
 
     public NotificationKind kind() {

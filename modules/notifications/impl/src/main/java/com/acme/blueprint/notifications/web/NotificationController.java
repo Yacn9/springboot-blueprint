@@ -2,7 +2,7 @@ package com.acme.blueprint.notifications.web;
 
 import java.net.URI;
 
-import com.acme.blueprint.customers.CustomerId;
+import com.acme.blueprint.users.UserId;
 import com.acme.blueprint.notifications.application.NotificationManagement;
 import com.acme.blueprint.notifications.domain.Notification;
 import com.acme.blueprint.notifications.domain.NotificationId;
@@ -25,12 +25,12 @@ import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 /**
  * <pre>
- * GET  /api/notifications?customerId=…&amp;page=0&amp;size=20   a customer's notifications, newest first
+ * GET  /api/notifications?userId=…&amp;page=0&amp;size=20   a user's notifications, newest first
  * GET  /api/notifications/{notificationId}
  * POST /api/notifications                                send an ad-hoc notification → 201, Location
  * </pre>
  *
- * Paging behaves exactly like the customers list. The order is fixed, so any
+ * Paging behaves exactly like the users list. The order is fixed, so any
  * {@code sort} parameter is rejected rather than silently ignored.
  * Notifications are immutable, so they carry no ETag.
  */
@@ -45,9 +45,9 @@ class NotificationController {
     }
 
     @GetMapping
-    ApiResponse<PageResponse<NotificationResponse>> listForCustomer(
-            @RequestParam CustomerId customerId, @PageableDefault(size = 20) Pageable pageable) {
-        var page = notifications.findForCustomer(customerId, pageable).map(NotificationResponse::from);
+    ApiResponse<PageResponse<NotificationResponse>> listForUser(
+            @RequestParam UserId userId, @PageableDefault(size = 20) Pageable pageable) {
+        var page = notifications.findForUser(userId, pageable).map(NotificationResponse::from);
         return ApiResponse.of(PageResponse.from(page));
     }
 
@@ -58,8 +58,8 @@ class NotificationController {
 
     @PostMapping
     ResponseEntity<ApiResponse<NotificationResponse>> send(@Valid @RequestBody SendNotificationRequest request) {
-        Notification notification = notifications.sendToCustomer(
-                new CustomerId(request.customerId()), request.subject(), request.body());
+        Notification notification = notifications.sendToUser(
+                new UserId(request.userId()), request.subject(), request.body());
         URI location = ServletUriComponentsBuilder.fromCurrentRequestUri()
                 .path("/{notificationId}")
                 .buildAndExpand(notification.id())

@@ -16,7 +16,7 @@ The goal is the benefit of a service-per-domain split — clear ownership,
 encapsulation, independent evolution, a cheap path to extracting a service
 later — without the operational cost of a distributed system.
 
-This is a starting point, not a product. `customers` is built out end to end
+This is a starting point, not a product. `users` is built out end to end
 as the pattern to copy; `notifications` is a second, smaller module that exists
 to show how modules talk to each other.
 
@@ -69,8 +69,8 @@ to show how modules talk to each other.
 ```
 
 A module's two Gradle projects share one Java package root. The `-api` project
-contributes the **base package** (`com.acme.blueprint.customers`); the `-impl`
-project contributes only **sub-packages** (`…customers.domain`, `…customers.web`,
+contributes the **base package** (`com.acme.blueprint.users`); the `-impl`
+project contributes only **sub-packages** (`…users.domain`, `…users.web`,
 …). That is exactly Spring Modulith's convention — base package = API,
 sub-packages = internal — so Gradle and Modulith agree on where the boundary
 is.
@@ -87,10 +87,10 @@ is.
 
 ```java
 // ✅ notifications-impl — through the contract
-import com.acme.blueprint.customers.CustomerDirectory;
+import com.acme.blueprint.users.UserDirectory;
 
-// ❌ does not compile — customers-impl is not on notifications' classpath
-import com.acme.blueprint.customers.domain.Customer;
+// ❌ does not compile — users-impl is not on notifications' classpath
+import com.acme.blueprint.users.domain.User;
 ```
 
 If a type is not in a module's `-api` project, it does not exist to the rest
@@ -110,11 +110,11 @@ of the system.
 Module-to-module dependencies must form a directed acyclic graph. Today:
 
 ```
-notifications ──▶ customers
+notifications ──▶ users
 ```
 
-If `customers` ever needs something from `notifications`, the arrow must not be
-reversed by a direct call. Publish an event from `customers` instead, or move
+If `users` ever needs something from `notifications`, the arrow must not be
+reversed by a direct call. Publish an event from `users` instead, or move
 the shared concept into a new module both depend on.
 
 ### Inside a module
@@ -147,27 +147,27 @@ response and never be saved. ArchUnit therefore forbids `web` from calling
 
 | Need                                         | Use                         | Example |
 | -------------------------------------------- | --------------------------- | ------- |
-| "Something happened, react if you care"      | **Event** (record in `-api`) | `CustomerRegistered` → notifications sends a welcome |
-| "I need current data to serve this request"  | **Directory interface** in `-api` | `CustomerDirectory.findById` when sending an ad-hoc notification |
+| "Something happened, react if you care"      | **Event** (record in `-api`) | `UserRegistered` → notifications sends a welcome |
+| "I need current data to serve this request"  | **Directory interface** in `-api` | `UserDirectory.findById` when sending an ad-hoc notification |
 
 Prefer events. They keep the publisher ignorant of its consumers and let the
 consumer fail and retry without affecting the publisher.
 
 Contracts stay minimal: a type moves into `-api` only when another module
-needs it. `CustomerStatus` and `CustomerTier` are internal to customers;
+needs it. `UserStatus` and `UserTier` are internal to users;
 `NotificationId` is internal to notifications.
 
 ### Events are transactional and at-least-once
 
 ```
-CustomerManagement.register()  ── one transaction ─────────────────────────┐
-  ├─ INSERT customers.customer   (flushed: uniqueness checked right here)  │
-  ├─ publishEvent(CustomerRegistered)                                      │
+UserManagement.register()  ── one transaction ─────────────────────────┐
+  ├─ INSERT users.user_account   (flushed: uniqueness checked right here)  │
+  ├─ publishEvent(UserRegistered)                                      │
   └─ INSERT event_publication (one row per listener)   ← Spring Modulith   │
 COMMIT ────────────────────────────────────────────────────────────────────┘
         │
         ▼  async, new transaction
-CustomerRegisteredListener.on()  (@ApplicationModuleListener)
+UserRegisteredListener.on()  (@ApplicationModuleListener)
   └─ success → publication completed (deleted, see completion-mode)
      failure → publication stays incomplete and can be resubmitted
 ```
@@ -193,10 +193,10 @@ CustomerRegisteredListener.on()  (@ApplicationModuleListener)
 
 ## Persistence
 
-- **One PostgreSQL database, one schema per module.** `customers.customer`,
+- **One PostgreSQL database, one schema per module.** `users.user_account`,
   `notifications.notification`. A module never reads another module's schema.
 - **No cross-module foreign keys or joins.** Modules reference each other's data
-  by id (`notification.customer_id`). This is what keeps a module extractable.
+  by id (`notification.user_id`). This is what keeps a module extractable.
 - **Flyway owns the schema; Hibernate validates it** (`ddl-auto: validate`) —
   in production and in every module test. The setting lives in `:shared`'s
   `config/blueprint-platform.yml`, which `PlatformDefaultsEnvironmentPostProcessor`
@@ -205,16 +205,16 @@ CustomerRegisteredListener.on()  (@ApplicationModuleListener)
   test properties can override any platform value, and no module can lose the
   defaults by adding a config file of its own. Each module ships its scripts
   in its own jar under `db/migration/<module>/`; Flyway scans all of them.
-- **Timestamp versions** — `V2026_10_17_1000__create_customer.sql` — so two
+- **Timestamp versions** — `V2026_10_17_1000__create_user.sql` — so two
   modules developed in parallel never claim the same version number.
 - **Aggregates are JPA entities** with private fields, a protected no-arg
   constructor for Hibernate, intention-revealing methods and no setters.
-  Embeddable **records** (`CustomerProfile`) model immutable value objects.
+  Embeddable **records** (`UserProfile`) model immutable value objects.
   This is a deliberate trade-off: one model instead of a domain model plus a
   mirrored persistence model. The cost — `jakarta.persistence` annotations in
   `domain` — is accepted; Spring is still forbidden there.
 - **The domain is the single source of every rule.** Value objects and
-  aggregates validate themselves (`NationalCode`, `CustomerProfile`,
+  aggregates validate themselves (`NationalCode`, `UserProfile`,
   `Notification`) and publish their limits as constants; web DTOs reference
   those constants in their bean-validation annotations, so HTTP clients fail
   fast with every bad field listed while other entry points are still
@@ -222,13 +222,13 @@ CustomerRegisteredListener.on()  (@ApplicationModuleListener)
   load, so **tightening a rule requires migrating existing data first**.
 - **Assigned UUID ids + `@Version`.** The id is set in the domain; the `null`
   version tells Spring Data the entity is new, so `save` issues an `INSERT`
-  without a prior `SELECT`. Aggregate ids are always typed (`CustomerId`,
+  without a prior `SELECT`. Aggregate ids are always typed (`UserId`,
   `NotificationId`); the type sits in `-api` only once it crosses a module
   boundary.
 - **`add` writes immediately.** Repository ports insert new aggregates with a
   flush, so database constraints fire inside the use case — before events
   are published or messages sent — and adapters translate violations into
-  business exceptions (`customer_national_code_uk` →
+  business exceptions (`user_national_code_uk` →
   `DuplicateNationalCodeException`). Changes to loaded aggregates are written
   at commit (unit of work).
 - `open-in-view` is off. Use cases load what the response needs.
@@ -237,7 +237,15 @@ CustomerRegisteredListener.on()  (@ApplicationModuleListener)
 
 ### Database vendor
 
-PostgreSQL is the vendor today, and the code that names it is kept in a few
+A project is generated for PostgreSQL or Oracle (`blueprint new` asks). On
+Oracle, which has no schema apart from a user, each module's migration creates
+an Oracle user that cannot log in (`users`, `notifications`) and its tables in
+it; the application user needs `CREATE USER`, `CREATE ANY TABLE`,
+`CREATE ANY INDEX` and the `… ANY TABLE` DML privileges — see
+`oracle-init/01-privileges.sql`, which compose and the tests run. A partial
+unique index becomes a unique function-based index.
+
+In the template PostgreSQL is the vendor, and the code that names it is kept in a few
 known places so that switching vendors is a contained change:
 
 | Spot | Holds |
@@ -258,7 +266,7 @@ query strings, so a vendor function written inside JPQL is a code-review matter.
 **Where a database's own output reaches Java, `:shared` normalises it.**
 `ConstraintViolations.isViolationOf` compares constraint names without any
 schema qualifier and ignoring case, because PostgreSQL reports
-`customer_national_code_uk` and Oracle `CUSTOMERS.CUSTOMER_NATIONAL_CODE_UK`.
+`user_national_code_uk` and Oracle `USERS.USER_NATIONAL_CODE_UK`.
 Adapters pass the name exactly as the migration declares it.
 
 **The test image is a full image name.** `database-image` may point at a
@@ -276,7 +284,7 @@ vendor's official image.
   out-of-range values are clamped, never rejected (`page < 0` → 0,
   `size < 1` → the default, `size > 100` → 100).
 - **Sorting uses public keys, not entity paths.** Each finder port declares
-  its keys (`CustomerFinder.SORT_BY_CREATED_AT`, `SORT_BY_LAST_NAME`) and its
+  its keys (`UserFinder.SORT_BY_CREATED_AT`, `SORT_BY_LAST_NAME`) and its
   persistence adapter maps them to entity paths with a `SortMapping` — next
   to the query, where module tests run them against the real schema. Every
   key is indexed, the id is appended as a tiebreaker so paging is stable, and
@@ -293,7 +301,7 @@ vendor's official image.
   if CORS exposes them: when you configure CORS, include
   `Access-Control-Expose-Headers: ETag, Location`.
 - Sub-resources for state that changes independently —
-  `PUT /api/customers/{id}/profile`, `PUT /api/customers/{id}/status` — are
+  `PUT /api/users/{id}/profile`, `PUT /api/users/{id}/status` — are
   write-only commands that return the updated parent.
 - `POST` returns `201 Created` with a `Location` header (without the request's
   query string), plus an `ETag` for resources that accept `PUT`.
@@ -312,12 +320,12 @@ change. Field-level problems also list `errors: [{ field, message }]`.
 | Bean validation of a body or a query parameter, wrong JSON value type (e.g. an enum in the wrong case) | 400 | `request.invalid` + `errors` |
 | Malformed JSON, bad path/query value, missing parameter or header | 400 | `request.malformed-body`, `request.invalid-parameter`, `request.missing-parameter` |
 | Unknown route, method, media type | 404 / 405 / 415 / 406 | `request.not-found`, `request.method-not-allowed`, `request.unsupported-media-type`, `request.not-acceptable` |
-| `ResourceNotFoundException` | 404 | `customers.not-found`, `notifications.not-found` |
-| `ConflictException` | 409 | `customers.duplicate-national-code` |
+| `ResourceNotFoundException` | 404 | `users.not-found`, `notifications.not-found` |
+| `ConflictException` | 409 | `users.duplicate-national-code` |
 | Concurrent commit (`@Version`) on a request without `If-Match` | 409 | `request.concurrent-modification` |
 | `PreconditionFailedException` — stale `If-Match`, at load or at commit | 412 | `request.version-mismatch` |
 | `PUT` without `If-Match` | 428 | `request.precondition-required` |
-| `BusinessRuleViolationException` | 422 | `customers.invalid-national-code`, `customers.invalid-profile`, `customers.closed`, `customers.status-transition-not-allowed`, `notifications.unknown-customer`, `notifications.invalid-content` |
+| `BusinessRuleViolationException` | 422 | `users.invalid-national-code`, `users.invalid-profile`, `users.closed`, `users.status-transition-not-allowed`, `notifications.unknown-user`, `notifications.invalid-content` |
 | An exception annotated `@ResponseStatus` | its status | derived from the status |
 | Anything else | 500 | `server.internal-error` (cause logged, never returned) |
 
@@ -355,8 +363,8 @@ so the two can never drift apart.
 
 | Test | Scope | Where | Needs |
 | ---- | ----- | ----- | ----- |
-| Domain unit tests (`CustomerTest`, `CustomerProfileTest`) | One class, no Spring | `-impl` | — |
-| Use-case tests (`CustomerManagementTest`) | Application layer with hand-written port fakes; asserts error codes | `-impl` | — |
+| Domain unit tests (`UserTest`, `UserProfileTest`) | One class, no Spring | `-impl` | — |
+| Use-case tests (`UserManagementTest`) | Application layer with hand-written port fakes; asserts error codes | `-impl` | — |
 | Web slice (`@WebMvcTest`) | Controller, validation, ETag/If-Match, error mapping; use cases mocked | `-impl` | — |
 | Module test (`@ApplicationModuleTest`) | **One module alone** + `:shared`, real database, production platform settings, Modulith `Scenario` for events | `-impl` | Docker |
 | Architecture (`ModularityTests`, `ArchitectureRulesTests`) | Whole codebase, static | `:app` | — |
@@ -365,8 +373,8 @@ so the two can never drift apart.
 A module test runs with **only that module on the classpath** — its Gradle
 project cannot even see the other implementations — so it proves the module
 works in isolation. Collaborators from other modules are mocked through their
-`-api` interfaces (`@MockitoBean CustomerDirectory`), and their events are
-published by the test (`scenario.publish(new CustomerRegistered(…))`).
+`-api` interfaces (`@MockitoBean UserDirectory`), and their events are
+published by the test (`scenario.publish(new UserRegistered(…))`).
 
 `ModuleTestApplication` (in `:shared`'s test fixtures) is the bootstrap every
 module test finds; the platform defaults reach module tests exactly the way
@@ -398,7 +406,7 @@ Say, `accounts`:
    plugins { id("blueprint.module-impl") }
    dependencies {
        api(project(":accounts-api"))
-       implementation(project(":customers-api"))   // only the contracts you need
+       implementation(project(":users-api"))   // only the contracts you need
    }
    ```
 4. Implement `domain/`, `application/`, `infrastructure/`, `web/` under

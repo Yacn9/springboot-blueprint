@@ -13,7 +13,7 @@ import jakarta.validation.constraints.Size;
  * never supplied. Limits come from {@link Notification}.
  */
 record SendNotificationRequest(
-        @NotNull UUID customerId,
+        @NotNull UUID userId,
         @NotBlank @Size(max = Notification.SUBJECT_MAX_LENGTH) String subject,
         @NotBlank @Size(max = Notification.BODY_MAX_LENGTH) String body) {
 }

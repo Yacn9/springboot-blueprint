@@ -2,9 +2,9 @@ package com.acme.blueprint.notifications.application;
 
 import java.time.Clock;
 
-import com.acme.blueprint.customers.CustomerDirectory;
-import com.acme.blueprint.customers.CustomerId;
-import com.acme.blueprint.customers.CustomerSummary;
+import com.acme.blueprint.users.UserDirectory;
+import com.acme.blueprint.users.UserId;
+import com.acme.blueprint.users.UserSummary;
 import com.acme.blueprint.notifications.domain.Notification;
 import com.acme.blueprint.notifications.domain.NotificationId;
 import com.acme.blueprint.notifications.domain.NotificationKind;
@@ -18,8 +18,8 @@ import org.springframework.transaction.annotation.Transactional;
 /**
  * Use cases of the notifications module. Shows both ways modules talk:
  * {@link #sendWelcome} is driven by another module's event, while
- * {@link #sendToCustomer} calls the customers module synchronously through
- * its published {@link CustomerDirectory} contract.
+ * {@link #sendToUser} calls the users module synchronously through
+ * its published {@link UserDirectory} contract.
  */
 @Service
 @Transactional
@@ -28,42 +28,42 @@ public class NotificationManagement {
     private final NotificationRepository notifications;
     private final NotificationFinder finder;
     private final NotificationSender sender;
-    private final CustomerDirectory customers;
+    private final UserDirectory users;
     private final Clock clock;
 
     NotificationManagement(
             NotificationRepository notifications,
             NotificationFinder finder,
             NotificationSender sender,
-            CustomerDirectory customers,
+            UserDirectory users,
             Clock clock) {
         this.notifications = notifications;
         this.finder = finder;
         this.sender = sender;
-        this.customers = customers;
+        this.users = users;
         this.clock = clock;
     }
 
     /**
      * Idempotent: the triggering event is delivered at least once, so a
-     * redelivery must not greet the customer twice. The check handles the
+     * redelivery must not greet the user twice. The check handles the
      * normal case; if two deliveries race past it, the second row is rejected
      * by a unique index when {@link #deliver} writes it — before anything is
      * sent — and that delivery is retried later as a no-op.
      *
-     * <p>Parameters follow {@code CustomerRegistered}'s order.
+     * <p>Parameters follow {@code UserRegistered}'s order.
      */
-    public void sendWelcome(CustomerId customerId, String fullName, String email) {
-        if (notifications.existsByCustomerAndKind(customerId, NotificationKind.WELCOME)) {
+    public void sendWelcome(UserId userId, String fullName, String email) {
+        if (notifications.existsByUserAndKind(userId, NotificationKind.WELCOME)) {
             return;
         }
-        deliver(Notification.welcome(customerId, fullName, email, clock.instant()));
+        deliver(Notification.welcome(userId, fullName, email, clock.instant()));
     }
 
-    public Notification sendToCustomer(CustomerId customerId, String subject, String body) {
-        CustomerSummary customer = customers.findById(customerId)
-                .orElseThrow(() -> new UnknownCustomerException(customerId));
-        return deliver(Notification.adHoc(customerId, subject, body, customer.email(), clock.instant()));
+    public Notification sendToUser(UserId userId, String subject, String body) {
+        UserSummary user = users.findById(userId)
+                .orElseThrow(() -> new UnknownUserException(userId));
+        return deliver(Notification.adHoc(userId, subject, body, user.email(), clock.instant()));
     }
 
     @Transactional(readOnly = true)
@@ -74,8 +74,8 @@ public class NotificationManagement {
 
     /** Newest first. */
     @Transactional(readOnly = true)
-    public Page<Notification> findForCustomer(CustomerId customerId, Pageable pageable) {
-        return finder.findForCustomer(customerId, pageable);
+    public Page<Notification> findForUser(UserId userId, Pageable pageable) {
+        return finder.findForUser(userId, pageable);
     }
 
     /**

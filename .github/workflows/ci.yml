@@ -1,0 +1,44 @@
+name: Build generated projects
+
+# Generates a project for each database the CLI offers and runs its full build —
+# unit, module, architecture and end-to-end tests against a real database
+# container. The PostgreSQL project is the template itself, renamed; the Oracle
+# one is the only place the Oracle overlay is ever built.
+on:
+  push:
+  pull_request:
+
+jobs:
+  generated-project:
+    strategy:
+      fail-fast: false
+      matrix:
+        database: [postgresql, oracle]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "25"
+
+      - name: Generate a ${{ matrix.database }} project
+        env:
+          BLUEPRINT_OFFLINE: "1"   # the template's own versions, not whatever was released today
+        run: |
+          chmod +x gradlew
+          ./gradlew -p cli jar --console=plain
+          java -jar cli/build/libs/blueprint-cli-*.jar new ci-app --database ${{ matrix.database }} \
+            --parent-dir "$RUNNER_TEMP" </dev/null
+
+      - name: Build it
+        working-directory: ${{ runner.temp }}/ci-app
+        run: ./gradlew build --console=plain
+
+      - name: Keep the test reports
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-reports-${{ matrix.database }}
+          path: ${{ runner.temp }}/ci-app/**/build/reports/tests/

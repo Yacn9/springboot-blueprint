@@ -55,7 +55,7 @@ class VersionsAndToolsTest {
 
     @Test
     void pinsTheChosenVersionsInTheGeneratedProject() throws Exception {
-        String out = run(tools(Optional.of("21.0.2"), Optional.of("2.43.0"), true), "my-shop\n21\n\n\n");
+        String out = run(tools(Optional.of("21.0.2"), Optional.of("2.43.0"), true), "my-shop\n21\n\n\n\n");
 
         assertThat(out).contains("? Java version (LTS) (25 / 21) [25]", "Spring Boot version (4.2.0 / 4.1.1)", "java    21.0.2");
         assertThat(Files.readString(work.resolve("my-shop/" + ProjectVersions.CATALOG)))
@@ -67,8 +67,8 @@ class VersionsAndToolsTest {
 
     @Test
     void installsMissingToolsOnlyWhenTheUserAgrees() throws Exception {
-        // Enter ×3 takes the newest versions; then yes to Java, and yes to Gradle (git has no known installer here).
-        String out = run(tools(Optional.empty(), Optional.of("1.9.5"), false), "my-shop\n\n\n\ny\ny\n");
+        // Enter ×4 takes the newest versions and PostgreSQL; then yes to Java, and yes to Gradle (git has no known installer here).
+        String out = run(tools(Optional.empty(), Optional.of("1.9.5"), false), "my-shop\n\n\n\n\ny\ny\n");
 
         assertThat(out).contains("java    not found", "git     1.9.5 is too old", "Install git yourself");
         assertThat(installed).containsExactly(

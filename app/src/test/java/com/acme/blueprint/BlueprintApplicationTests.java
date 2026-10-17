@@ -31,8 +31,8 @@ class BlueprintApplicationTests {
     MockMvcTester mvc;
 
     @Test
-    void registeringACustomerSendsAWelcomeNotification() throws Exception {
-        var registered = mvc.post().uri("/api/customers")
+    void registeringAUserSendsAWelcomeNotification() throws Exception {
+        var registered = mvc.post().uri("/api/users")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""
                         {
@@ -45,10 +45,10 @@ class BlueprintApplicationTests {
                         """)
                 .exchange();
         assertThat(registered).hasStatus(HttpStatus.CREATED);
-        String customerId = JsonPath.read(registered.getResponse().getContentAsString(), "$.data.id");
+        String userId = JsonPath.read(registered.getResponse().getContentAsString(), "$.data.id");
 
         await().atMost(Duration.ofSeconds(10)).untilAsserted(() ->
-                assertThat(mvc.get().uri("/api/notifications").param("customerId", customerId))
+                assertThat(mvc.get().uri("/api/notifications").param("userId", userId))
                         .hasStatusOk()
                         .bodyJson().extractingPath("$.data.items[*].kind").asArray().containsExactly("WELCOME"));
     }
