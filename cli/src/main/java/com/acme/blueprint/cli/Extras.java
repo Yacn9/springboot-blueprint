@@ -103,7 +103,7 @@ final class Extras {
             default -> { }
         }
         if (spec.broker() != BrokerProvider.NONE) {
-            service.append("      SPRING_KAFKA_BOOTSTRAP_SERVERS: ").append(spec.broker().composeName()).append(":19092\n");
+            service.append(spec.broker().appEnvironment());
         }
         service.append("    depends_on:\n      - ").append(database.composeService()).append('\n');
         if (spec.cache() == CacheProvider.REDIS || spec.cache() == CacheProvider.MEMCACHED) {
@@ -117,7 +117,7 @@ final class Extras {
 
     private static String dependabot(ProjectSpec spec, String text) {
         String updates = text;
-        if (spec.has(Extra.CI)) {
+        if (spec.has(Extra.CI) || spec.has(Extra.SCANS)) {
             updates += ecosystem("github-actions");
         }
         if (spec.deploy().containerised()) {

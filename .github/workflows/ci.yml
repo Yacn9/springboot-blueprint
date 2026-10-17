@@ -24,6 +24,7 @@ jobs:
           - { database: oracle, cache: redis, flags: --no-samples }
           - { database: postgresql, cache: redis, flags: --broker kafka --deploy kubernetes --ci --security --observability --dependabot }
           - { database: postgresql, cache: none, flags: --broker redpanda --deploy docker }
+          - { database: postgresql, cache: memory, flags: --broker rabbitmq --deploy docker --scans }
           - { database: oracle, cache: memcached, flags: --deploy docker --security }
           - { database: postgresql, cache: none, flags: --deploy docker --no-compose }
     runs-on: ubuntu-latest
@@ -58,6 +59,12 @@ jobs:
         run: |
           [ -f Dockerfile ] || { echo "no Dockerfile"; exit 0; }
           docker build --tag ci-app . 2>&1 | tee -a build.log
+
+      - name: Check the scans' build script
+        working-directory: ${{ runner.temp }}/ci-app
+        run: |
+          [ -f .github/workflows/security.yml ] || { echo "no scans"; exit 0; }
+          ./gradlew help --task dependencyCheckAggregate --console=plain 2>&1 | tee -a build.log
 
       - name: Check the Helm chart
         working-directory: ${{ runner.temp }}/ci-app

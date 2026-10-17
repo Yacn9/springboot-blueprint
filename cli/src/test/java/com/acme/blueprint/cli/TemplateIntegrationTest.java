@@ -274,6 +274,35 @@ class TemplateIntegrationTest {
                 .contains("image: redpandadata/redpanda:", "SPRING_KAFKA_BOOTSTRAP_SERVERS: redpanda:19092", "      - redpanda");
     }
 
+    /** RabbitMQ: its own externalization (one exchange), test, container, compose service with its own user. */
+    @Test
+    void generatesRabbitMq(@TempDir Path work) throws IOException {
+        Path project = generate(ProjectSpec.defaultsFor(ProjectName.fromUserInput("rabbit-shop"))
+                .withBroker(BrokerProvider.RABBITMQ).withDeploy(Deployment.DOCKER), work);
+
+        assertThat(Files.readString(project.resolve("app/src/main/java/com/rabbitshop/EventExternalization.java"), UTF_8))
+                .contains("EXCHANGE = \"rabbitshop.events\"", "RoutingTarget.forTarget(EXCHANGE)");
+        assertThat(Files.readString(project.resolve("app/build.gradle.kts"), UTF_8)).contains("implementation(\"org.springframework.boot:spring-boot-starter-amqp\")");
+        assertThat(Files.readString(project.resolve("shared/build.gradle.kts"), UTF_8))
+                .contains("spring-modulith-events-amqp", "\"org.testcontainers:testcontainers-rabbitmq\"").doesNotContain("kafka");
+        assertThat(Files.readString(project.resolve("compose.yaml"), UTF_8))
+                .contains("RABBITMQ_DEFAULT_USER: rabbitshop", "SPRING_RABBITMQ_HOST: rabbitmq", "      - rabbitmq");
+    }
+
+    /** The OWASP scans: the workflow on the chosen Java, and Dependency-Check in a root build script. */
+    @Test
+    void generatesTheSecurityScans(@TempDir Path work) throws IOException {
+        ProjectVersions versions = ProjectVersions.of(new ProjectTemplate(TemplateIntegrationTest::openArchive, "")).orElseThrow();
+        Path project = generate(ProjectSpec.defaultsFor(ProjectName.fromUserInput("safe-shop"))
+                .withVersions(new ProjectVersions("21", versions.springBoot(), versions.gradle(), versions.gradleSha256()))
+                .withExtras(java.util.Set.of(Extra.COMPOSE, Extra.SCANS)), work);
+
+        assertThat(Files.readString(project.resolve(".github/workflows/security.yml"), UTF_8))
+                .contains("github/codeql-action/analyze@v4", "zaproxy/action-baseline@", "dependencyCheckAggregate", "java-version: \"21\"")
+                .doesNotContain("java-version: \"25\"");
+        assertThat(Files.readString(project.resolve("build.gradle.kts"), UTF_8)).contains("id(\"org.owasp.dependencycheck\")");
+    }
+
     /** Without compose: no compose.yaml, no docker-compose support, a README that says how to point at a database. */
     @Test
     void generatesAProjectWithoutCompose(@TempDir Path work) throws IOException {

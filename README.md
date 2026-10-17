@@ -10,12 +10,13 @@ module boundaries enforced by the build itself — not by good intentions.
 
 ```text
 ? Project name (for example my-shop): order-hub
+? Use the default setup? (no: choose each setting) [Y/n]: n
 ? Java version (LTS) (25 / 21) [25]:
 ? Spring Boot version: 4.1.1
 ? Gradle version: 9.8.1
 ? Database (postgresql / oracle) [postgresql]:
 ? Cache (none / memory / redis / memcached) [none]: redis
-? Message broker (none / kafka / redpanda) [none]: kafka
+? Message broker (none / kafka / redpanda / rabbitmq) [none]: kafka
 ? Include the sample modules (users, notifications)? [Y/n]:
 ? Include the sample modules' tests (unit, web slice and module tests)? [Y/n]:
 ? Docker Compose for the local database and cache (bootRun starts it)? [Y/n]:
@@ -24,6 +25,7 @@ module boundaries enforced by the build itself — not by good intentions.
 ? Secure the API with JWTs (OAuth2 resource server)? [y/N]: y
 ? Observability: Prometheus metrics and OpenTelemetry tracing? [Y/n]:
 ? Dependabot for dependency updates? [Y/n]:
+? OWASP security scans in CI: ZAP (DAST), CodeQL (SAST), Dependency-Check (SCA)? [y/N]:
 ? Initialize a git repository with a first commit? [Y/n]:
 
 Checking tools:
@@ -48,14 +50,15 @@ cd order-hub
 | Spring Boot, Gradle | the newest release of the template's line, looked up live | newest |
 | Database | PostgreSQL, or Oracle 23ai (one Oracle user per module) | PostgreSQL |
 | Cache | none, in memory (Caffeine), Redis, or Memcached | none |
-| Message broker | none, Kafka or Redpanda — the modules' events are published there too, after commit | none |
+| Message broker | none, Kafka, Redpanda or RabbitMQ — the modules' events are published there too, after commit | none |
 | Sample modules | `users` and `notifications` — and their tests — or an empty project | keep |
 | Docker Compose | the local database and cache, started by `bootRun` | yes |
 | Deploy | none, Docker (Dockerfile + the app in compose), or Kubernetes (plus a Helm chart) | none |
-| Extras | GitHub Actions CI · JWT security · Prometheus + OpenTelemetry · Dependabot | CI, observability, Dependabot |
+| Extras | GitHub Actions CI · JWT security · Prometheus + OpenTelemetry · Dependabot · OWASP scans (ZAP, CodeQL, Dependency-Check) | CI, observability, Dependabot |
 | Git | `git init` on `main` with *Initial commit from blueprint new* | yes |
 
-Every question has a flag, so scripts and CI need no prompts:
+Answer yes to *Use the default setup?* (or pass `--defaults`) and nothing else is asked:
+every choice takes its default. Every question also has a flag, so scripts and CI need no prompts:
 
 ```bash
 curl -fsSL …/install.sh | sh -s -- order-hub --database oracle --cache redis --deploy kubernetes --security --no-git

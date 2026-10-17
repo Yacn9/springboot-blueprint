@@ -78,6 +78,13 @@ final class NewCommand implements Callable<Integer> {
     @Option(names = "--dependabot", negatable = true, description = "Dependabot configuration, or not.")
     private Boolean dependabot;
 
+    @Option(names = {"-y", "--defaults"}, negatable = true,
+            description = "Take every default without asking (--no-defaults: ask about each). Other options still apply.")
+    private Boolean defaults;
+
+    @Option(names = "--scans", negatable = true, description = "OWASP scans in CI (ZAP, CodeQL, Dependency-Check), or not.")
+    private Boolean scans;
+
     @Option(names = "--git", negatable = true,
             description = "git init with a first commit, or not (--no-git). Asked for when left out.")
     private Boolean git;
@@ -110,7 +117,14 @@ final class NewCommand implements Callable<Integer> {
         ProjectName name = projectName != null ? nameFromArgument() : nameFromPrompt(prompter);
         ProjectSpec project = ProjectSpec.defaultsFor(name);
         Optional<ProjectVersions> templateVersions = ProjectVersions.of(template);
+        boolean useDefaults = false;
         if (templateVersions.isPresent()) {
+            // No answer (piped input) means the custom path, where every unanswered question keeps the template as it is.
+            useDefaults = defaults != null ? defaults
+                    : prompter.confirm("Use the default setup? (no: choose each setting)", true, false);
+            if (useDefaults) {
+                prompter = prompter.answeringDefaults();
+            }
             project = project.withVersions(chooseVersions(prompter, templateVersions.get()))
                     .withDatabase(database != null ? databaseFromOption() : Database.of(prompter.choose("Database", Database.ids())))
                     .withCache(cache != null ? cacheFromOption() : CacheProvider.of(prompter.choose("Cache", CacheProvider.ids())))
@@ -126,12 +140,13 @@ final class NewCommand implements Callable<Integer> {
                 extras.add(Extra.COMPOSE);
             }
             project = project.withDeploy(deploy != null ? deploymentFromOption() : Deployment.of(prompter.choose("Deploy", Deployment.ids())));
-            for (Extra extra : List.of(Extra.CI, Extra.SECURITY, Extra.OBSERVABILITY, Extra.DEPENDABOT)) {
+            for (Extra extra : List.of(Extra.CI, Extra.SECURITY, Extra.OBSERVABILITY, Extra.DEPENDABOT, Extra.SCANS)) {
                 Boolean option = switch (extra) {
                     case CI -> ci;
                     case SECURITY -> security;
                     case OBSERVABILITY -> observability;
-                    default -> dependabot;
+                    case DEPENDABOT -> dependabot;
+                    default -> scans;
                 };
                 if (answer(prompter, option, extra)) {
                     extras.add(extra);
@@ -141,6 +156,9 @@ final class NewCommand implements Callable<Integer> {
         }
         boolean initGit = git != null ? git : templateVersions.isPresent()
                 && prompter.confirm("Initialize a git repository with a first commit?", false);
+        if (useDefaults) {
+            out.println(style.dim("Default setup: " + describe(project, initGit)));
+        }
         checkTools(prompter, out, project.versions());
 
         Path parent = parentDirectory != null ? parentDirectory : Path.of("");
@@ -169,6 +187,26 @@ final class NewCommand implements Callable<Integer> {
                     "Unknown database '" + database + "': choose one of " + String.join(", ", Database.ids()) + ".");
         }
         return Database.of(database);
+    }
+
+    /** One line of what the default setup chose. */
+    private static String describe(ProjectSpec project, boolean git) {
+        List<String> parts = new java.util.ArrayList<>();
+        if (project.versions() != null) {
+            parts.add("Java " + project.versions().java());
+            parts.add("Spring Boot " + project.versions().springBoot());
+            parts.add("Gradle " + project.versions().gradle());
+        }
+        parts.add(project.database().displayName());
+        parts.add("cache " + project.cache().id());
+        parts.add("broker " + project.broker().id());
+        parts.add(project.samples() ? (project.has(Extra.TESTS) ? "sample modules with tests" : "sample modules") : "no sample modules");
+        parts.add("deploy " + project.deploy().id());
+        project.extras().stream().filter(extra -> extra != Extra.TESTS).map(Extra::id).sorted().forEach(parts::add);
+        if (git) {
+            parts.add("git");
+        }
+        return String.join(" · ", parts) + ".";
     }
 
     /** The option when given; otherwise asked — Enter takes the extra's default, no answer keeps what the template has. */

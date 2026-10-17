@@ -15,15 +15,27 @@ final class Prompter {
     private final BufferedReader input;
     private final PrintWriter output;
     private final Style style;
+    /** Takes every setting's default without asking — and never says yes to an install. */
+    private final boolean defaults;
 
     Prompter(BufferedReader input, PrintWriter output) {
         this(input, output, Style.PLAIN);
     }
 
     Prompter(BufferedReader input, PrintWriter output, Style style) {
+        this(input, output, style, false);
+    }
+
+    private Prompter(BufferedReader input, PrintWriter output, Style style, boolean defaults) {
         this.input = input;
         this.output = output;
         this.style = style;
+        this.defaults = defaults;
+    }
+
+    /** This prompter, answering every choice with its default instead of asking. */
+    Prompter answeringDefaults() {
+        return new Prompter(input, output, style, true);
     }
 
     /**
@@ -57,6 +69,9 @@ final class Prompter {
      */
     String choose(String question, List<String> options) {
         String first = options.get(0);
+        if (defaults) {
+            return first;
+        }
         if (options.size() == 1) {
             output.println(style.prompt(question) + style.cyan(first));
             output.flush();
@@ -73,7 +88,7 @@ final class Prompter {
 
     /** Asks yes or no; Enter means yes, the end of the input means no — nothing is installed unasked. */
     boolean confirm(String question) {
-        return confirm(question, false);
+        return !defaults && confirm(question, false);
     }
 
     /** Asks yes or no; Enter means yes, the end of the input means {@code whenUnanswered}. */
@@ -83,6 +98,9 @@ final class Prompter {
 
     /** Asks yes or no; Enter means {@code byDefault}, the end of the input {@code whenUnanswered}. */
     boolean confirm(String question, boolean byDefault, boolean whenUnanswered) {
+        if (defaults) {
+            return byDefault;
+        }
         return ask(question + (byDefault ? " [Y/n]" : " [y/N]"), answer -> switch (answer.strip().toLowerCase(Locale.ROOT)) {
             case "" -> byDefault;
             case "y", "yes" -> true;

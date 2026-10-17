@@ -15,7 +15,8 @@ enum Extra {
     CI("ci", "A GitHub Actions workflow that builds and tests every push?", true),
     SECURITY("security", "Secure the API with JWTs (OAuth2 resource server)?", false),
     OBSERVABILITY("observability", "Observability: Prometheus metrics and OpenTelemetry tracing?", true),
-    DEPENDABOT("dependabot", "Dependabot for dependency updates?", true);
+    DEPENDABOT("dependabot", "Dependabot for dependency updates?", true),
+    SCANS("scans", "OWASP security scans in CI: ZAP (DAST), CodeQL (SAST), Dependency-Check (SCA)?", false);
 
     private final String id;
     private final String question;

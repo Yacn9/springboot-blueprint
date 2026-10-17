@@ -29,6 +29,7 @@ record ProjectVersions(String java, String springBoot, String gradle, String gra
     private static final Pattern GRADLE = Pattern.compile("gradle-([0-9][0-9.]*)-bin\\.zip");
     static final String DOCKERFILE = "Dockerfile";
     static final String CI_WORKFLOW = ".github/workflows/build.yml";
+    static final String SCANS_WORKFLOW = ".github/workflows/security.yml";
     private static final Pattern TEMURIN = Pattern.compile("eclipse-temurin:(\\d+)-");
     private static final Pattern CI_JAVA = Pattern.compile("java-version: \"(\\d+)\"");
     private static final Pattern GRADLE_SHA256 = Pattern.compile("(?m)^distributionSha256Sum=(\\w+)");
@@ -60,7 +61,7 @@ record ProjectVersions(String java, String springBoot, String gradle, String gra
             case CATALOG -> replace(replace(text, JAVA, java), SPRING_BOOT, springBoot);
             case WRAPPER -> replace(replace(text, GRADLE, gradle), GRADLE_SHA256, gradleSha256);
             case DOCKERFILE -> replace(text, TEMURIN, java);
-            case CI_WORKFLOW -> replace(text, CI_JAVA, java);
+            case CI_WORKFLOW, SCANS_WORKFLOW -> replace(text, CI_JAVA, java);
             default -> text;
         };
     }

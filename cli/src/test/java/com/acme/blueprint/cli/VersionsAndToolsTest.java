@@ -55,7 +55,7 @@ class VersionsAndToolsTest {
 
     @Test
     void pinsTheChosenVersionsInTheGeneratedProject() throws Exception {
-        String out = run(tools(Optional.of("21.0.2"), Optional.of("2.43.0"), true), "my-shop\n21\n\n\n\n\n");
+        String out = run(tools(Optional.of("21.0.2"), Optional.of("2.43.0"), true), "my-shop\nn\n21\n\n\n\n\n");
 
         assertThat(out).contains("? Java version (LTS) (25 / 21) [25]", "Spring Boot version (4.2.0 / 4.1.1)", "java    21.0.2");
         assertThat(Files.readString(work.resolve("my-shop/" + ProjectVersions.CATALOG)))
@@ -67,8 +67,8 @@ class VersionsAndToolsTest {
 
     @Test
     void installsMissingToolsOnlyWhenTheUserAgrees() throws Exception {
-        // Enter ×10: newest versions, PostgreSQL, no cache, no broker, samples and tests, compose, no deploy; no to the extras and git; then yes to Java, and yes to Gradle (git has no known installer here).
-        String out = run(tools(Optional.empty(), Optional.of("1.9.5"), false), "my-shop\n" + "\n".repeat(10) + "n\n\nn\nn\nn\ny\ny\n");
+        // Custom; Enter ×10: newest versions, PostgreSQL, no cache, no broker, samples and tests, compose, no deploy; no to the extras and git; then yes to Java, and yes to Gradle (git has no known installer here).
+        String out = run(tools(Optional.empty(), Optional.of("1.9.5"), false), "my-shop\nn\n" + "\n".repeat(10) + "n\n\nn\nn\n\nn\ny\ny\n");
 
         assertThat(out).contains("java    not found", "git     1.9.5 is too old", "Install git yourself");
         assertThat(installed).containsExactly(
@@ -76,6 +76,16 @@ class VersionsAndToolsTest {
                 List.of("/jbang", "jdk", "default", "25"),
                 List.of("/jbang", "app", "setup", "--java"),
                 List.of("bash", "-c", "sdk install gradle 9.9"));
+    }
+
+    @Test
+    void takesEveryDefaultWithOneAnswerAndInstallsNothing() throws Exception {
+        String out = run(tools(Optional.empty(), Optional.of("2.43.0"), false), "my-shop\n\n");
+
+        assertThat(out).contains("? Use the default setup?", "Default setup: Java 25 · Spring Boot 4.2.0 · Gradle 9.9 · PostgreSQL",
+                "ci", "dependabot", "observability", "git", "java    not found").doesNotContain("? Database", "? Install");
+        assertThat(Files.readString(work.resolve("my-shop/" + ProjectVersions.CATALOG))).contains("spring-boot = \"4.2.0\"");
+        assertThat(installed).isEmpty();
     }
 
     @Test
