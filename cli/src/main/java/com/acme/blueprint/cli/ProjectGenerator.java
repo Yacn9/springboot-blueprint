@@ -65,7 +65,8 @@ final class ProjectGenerator {
         ZipInputStream zip = new ZipInputStream(archive);
         for (ZipEntry entry = zip.getNextEntry(); entry != null; entry = zip.getNextEntry()) {
             String source = entry.getName();
-            if (entry.isDirectory() || source.equals(TEMPLATE_README) || source.startsWith(Database.OVERLAYS)) {
+            if (entry.isDirectory() || source.equals(TEMPLATE_README) || source.startsWith(Database.OVERLAYS)
+                    || !spec.samples() && source.startsWith(SampleModules.MODULES)) {
                 continue;
             }
             byte[] content = overlay.containsKey(source) ? overlay.remove(source) : zip.readAllBytes();
@@ -73,6 +74,9 @@ final class ProjectGenerator {
             files++;
         }
         for (Map.Entry<String, byte[]> added : overlay.entrySet()) {
+            if (!spec.samples() && added.getKey().startsWith(SampleModules.MODULES)) {
+                continue;
+            }
             write(added.getKey(), added.getValue(), rules, spec, directory);
             files++;
         }
@@ -82,7 +86,10 @@ final class ProjectGenerator {
     /** The chosen database's and cache's overlay files, keyed by the template path they replace or add. */
     private static Map<String, byte[]> overlay(ProjectTemplate template, ProjectSpec spec) throws IOException {
         Map<String, byte[]> files = new LinkedHashMap<>();
-        for (String overlay : List.of(spec.database().overlay(), spec.cache().overlay())) {
+        List<String> overlays = spec.samples()
+                ? List.of(spec.database().overlay(), spec.cache().overlay())
+                : List.of(spec.database().overlay(), spec.cache().overlay(), SampleModules.OVERLAY);
+        for (String overlay : overlays) {
             try (InputStream archive = template.archive().get(); ZipInputStream zip = new ZipInputStream(archive)) {
                 for (ZipEntry entry = zip.getNextEntry(); entry != null; entry = zip.getNextEntry()) {
                     if (!entry.isDirectory() && entry.getName().startsWith(overlay)) {
@@ -110,6 +117,7 @@ final class ProjectGenerator {
                 .map(text -> spec.versions() == null ? text : spec.versions().pin(source, text))
                 .map(text -> spec.database().pin(source, text))
                 .map(text -> spec.cache().pin(source, text))
+                .map(text -> spec.samples() ? text : SampleModules.remove(source, text))
                 .map(text -> rules.content(text, source.endsWith(".md")))
                 .map(text -> text.getBytes(UTF_8))
                 .orElse(content);
@@ -137,6 +145,6 @@ final class ProjectGenerator {
                 .replace(README_NAME_PLACEHOLDER, spec.artifact())
                 .replace(README_PACKAGE_PLACEHOLDER, spec.basePackage())
                 .replace(README_DATABASE_PLACEHOLDER, spec.database().displayName());
-        Files.writeString(directory.resolve(TEMPLATE_README), readme, UTF_8);
+        Files.writeString(directory.resolve(TEMPLATE_README), spec.samples() ? readme : SampleModules.readme(readme), UTF_8);
     }
 }

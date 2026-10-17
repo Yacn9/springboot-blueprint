@@ -40,9 +40,19 @@ class TemplateIntegrationTest {
     }
 
     private static Path generate(ProjectSpec spec, Path work) {
+        return generate(spec, work, "# {{name}}\n\nBase package {{package}}\n");
+    }
+
+    private static Path generate(ProjectSpec spec, Path work, String readme) {
         String name = spec.artifact();
-        ProjectTemplate template = new ProjectTemplate(TemplateIntegrationTest::openArchive, "# {{name}}\n\nBase package {{package}}\n");
+        ProjectTemplate template = new ProjectTemplate(TemplateIntegrationTest::openArchive, readme);
         return GENERATOR.generate(template, spec, work.resolve(name)).directory();
+    }
+
+    private static String realReadme() throws IOException {
+        try (InputStream readme = TemplateIntegrationTest.class.getResourceAsStream("/project-readme.md")) {
+            return new String(readme.readAllBytes(), UTF_8);
+        }
     }
 
     private static InputStream openArchive() {
@@ -182,6 +192,24 @@ class TemplateIntegrationTest {
                 .map(file -> project.relativize(file).toString())
                 .toList();
         assertThat(offenders).isEmpty();
+    }
+
+    /** Without the samples: no modules, a build that names none, the startup-only end-to-end test, Oracle too. */
+    @Test
+    void generatesAProjectWithoutTheSampleModules(@TempDir Path work) throws IOException {
+        Path project = generate(ProjectSpec.defaultsFor(ProjectName.fromUserInput("empty-shop"))
+                .withDatabase(Database.ORACLE).withSamples(false), work, realReadme());
+
+        assertThat(project.resolve("modules")).doesNotExist();
+        assertThat(Files.readString(project.resolve("settings.gradle.kts"), UTF_8))
+                .doesNotContain("businessModule(\"users\")", "businessModule(\"notifications\")")
+                .contains("include(\":app\", \":shared\")", "fun businessModule(");
+        assertThat(Files.readString(project.resolve("app/build.gradle.kts"), UTF_8)).doesNotContain(":users-impl", ":notifications-impl");
+        assertThat(Files.readString(project.resolve("app/src/test/java/com/emptyshop/EmptyShopApplicationTests.java"), UTF_8))
+                .contains("startsAndReportsHealthy").doesNotContain("/api/users");
+        assertThat(Files.readString(project.resolve("README.md"), UTF_8))
+                .contains("modules/                 business modules — none yet", "There are no business modules yet")
+                .doesNotContain(":users-api", "reference slice");
     }
 
     /** A name that contains the blueprint's own word must come out once, not rewritten again. */

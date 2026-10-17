@@ -67,8 +67,8 @@ class VersionsAndToolsTest {
 
     @Test
     void installsMissingToolsOnlyWhenTheUserAgrees() throws Exception {
-        // Enter ×5 takes the newest versions, PostgreSQL and no cache; then yes to Java, and yes to Gradle (git has no known installer here).
-        String out = run(tools(Optional.empty(), Optional.of("1.9.5"), false), "my-shop\n\n\n\n\n\ny\ny\n");
+        // Enter ×6 takes the newest versions, PostgreSQL, no cache and the samples; no git; then yes to Java, and yes to Gradle (git has no known installer here).
+        String out = run(tools(Optional.empty(), Optional.of("1.9.5"), false), "my-shop\n\n\n\n\n\n\nn\ny\ny\n");
 
         assertThat(out).contains("java    not found", "git     1.9.5 is too old", "Install git yourself");
         assertThat(installed).containsExactly(
@@ -84,6 +84,30 @@ class VersionsAndToolsTest {
 
         assertThat(out).contains("Skipped. Install it later");
         assertThat(installed).isEmpty();
+    }
+
+    @Test
+    void initialisesGitOnMainWithOneCommit() throws Exception {
+        List<List<String>> git = new ArrayList<>();
+        SystemTools tools = new SystemTools(command -> {
+            git.add(command.subList(3, command.size()));
+            return command.get(3).equals("rev-parse") ? Optional.empty() : Optional.of("");
+        }, command -> 0, Map.of(), "Linux");
+
+        assertThat(tools.initGit(work)).isEmpty();
+        assertThat(git).containsExactly(List.of("rev-parse", "--is-inside-work-tree"), List.of("init", "-q"),
+                List.of("symbolic-ref", "HEAD", "refs/heads/main"), List.of("add", "-A"),
+                List.of("commit", "-q", "-m", "Initial commit from blueprint new"));
+    }
+
+    @Test
+    void leavesNoRepositoryBehindWhenTheCommitFails() throws Exception {
+        Files.createDirectories(work.resolve(".git/objects"));
+        SystemTools tools = new SystemTools(command -> command.get(3).equals("commit") || command.get(3).equals("rev-parse")
+                ? Optional.empty() : Optional.of(""), command -> 0, Map.of(), "Linux");
+
+        assertThat(tools.initGit(work)).hasValueSatisfying(reason -> assertThat(reason).contains("user.name"));
+        assertThat(work.resolve(".git")).doesNotExist();
     }
 
     @Test

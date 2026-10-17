@@ -5,9 +5,11 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Arrays;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -28,6 +30,7 @@ final class SystemTools {
     /** Gradle 9 needs Java 17+ to start; the project's own JDK then comes through the toolchain. */
     static final int MIN_JAVA = 17;
     static final int MIN_GIT = 2;
+    static final String INITIAL_COMMIT = "Initial commit from blueprint new";
 
     // `java -version`: openjdk version "21.0.2" — "25" for a .0 release, "1.8.0_292" before Java 9.
     private static final Pattern JAVA_VERSION = Pattern.compile("version \"([0-9][0-9._]*)\"");
@@ -122,6 +125,30 @@ final class SystemTools {
                         + " && . \"$HOME/.sdkman/bin/sdkman-init.sh\" && sdk install gradle " + version));
     }
 
+    /**
+     * {@code git init} on {@code main} and one commit of everything, as
+     * create-next-app does — or why not: the directory is already inside a
+     * repository, or the commit failed (no {@code user.name}), in which case the
+     * half-made repository is removed.
+     */
+    Optional<String> initGit(Path directory) {
+        String dir = directory.toString();
+        if (probe.apply(List.of("git", "-C", dir, "rev-parse", "--is-inside-work-tree")).isPresent()) {
+            return Optional.of("it is already inside a git repository");
+        }
+        boolean committed = Stream.of(
+                        List.of("git", "-C", dir, "init", "-q"),
+                        List.of("git", "-C", dir, "symbolic-ref", "HEAD", "refs/heads/main"),
+                        List.of("git", "-C", dir, "add", "-A"),
+                        List.of("git", "-C", dir, "commit", "-q", "-m", INITIAL_COMMIT))
+                .allMatch(command -> probe.apply(command).isPresent());
+        if (committed) {
+            return Optional.empty();
+        }
+        deleteRecursively(directory.resolve(".git"));
+        return Optional.of("git could not commit — are user.name and user.email set? (git config --global user.name …)");
+    }
+
     /** Runs the commands in order, stopping at the first that fails. */
     boolean install(List<List<String>> commands) {
         return commands.stream().allMatch(command -> run.apply(command) == 0);
@@ -143,6 +170,19 @@ final class SystemTools {
                         ? Stream.of(Path.of(directory, program + ".exe"), Path.of(directory, program + ".cmd"))
                         : Stream.of(Path.of(directory, program)))
                 .anyMatch(Files::isExecutable);
+    }
+
+    private static void deleteRecursively(Path root) {
+        if (!Files.exists(root)) {
+            return;
+        }
+        try (Stream<Path> paths = Files.walk(root)) {
+            for (Path path : paths.sorted(Comparator.reverseOrder()).toList()) {
+                Files.delete(path);
+            }
+        } catch (IOException failure) {
+            throw new UncheckedIOException("Could not remove " + root + ": " + failure.getMessage(), failure);
+        }
     }
 
     private static Optional<String> first(Pattern pattern, String text) {

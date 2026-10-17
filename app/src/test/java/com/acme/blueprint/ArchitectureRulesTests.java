@@ -64,6 +64,8 @@ class ArchitectureRulesTests {
     void layersInsideEachModuleDependInwards() {
         layeredArchitecture()
                 .consideringOnlyDependenciesInLayers()
+                // A project may start without modules; empty layers are not a violation.
+                .withOptionalLayers(true)
                 .layer("Web").definedBy(WEB)
                 .layer("Application").definedBy(APPLICATION)
                 .layer("Domain").definedBy(DOMAIN)

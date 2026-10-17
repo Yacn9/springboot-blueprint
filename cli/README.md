@@ -43,6 +43,8 @@ jbang blueprint@Yacn9/springboot-blueprint new
 | Gradle version | the template's and the current release, if it is of the same major line (9.x) | the newest |
 | Database | `postgresql` or `oracle` (also `--database <id>`) | postgresql |
 | Cache | `none`, `memory` (Caffeine), `redis` or `memcached` (also `--cache <id>`) | none |
+| Sample modules | keep `users` and `notifications`, or start with no modules (also `--[no-]samples`) | keep |
+| Git | `git init` on `main` with one commit, *Initial commit from blueprint new* (also `--[no-]git`); skipped inside an existing repository, undone if the commit fails | yes (no when not asked, e.g. piped input) |
 
 Hibernate, Spring Modulith's runtime and the other managed libraries follow
 from the Spring Boot version (its BOM). A question with one choice is shown,

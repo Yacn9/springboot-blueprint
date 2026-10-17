@@ -13,13 +13,15 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # Each database once without a cache, and each cache server on PostgreSQL.
+        # Each database once without a cache, each cache server on PostgreSQL, and a
+        # project that starts without the sample modules.
         include:
           - { database: postgresql, cache: none }
           - { database: oracle, cache: none }
           - { database: postgresql, cache: memory }
           - { database: postgresql, cache: redis }
           - { database: postgresql, cache: memcached }
+          - { database: oracle, cache: redis, flags: --no-samples }
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -35,7 +37,7 @@ jobs:
         run: |
           chmod +x gradlew
           ./gradlew -p cli jar --console=plain
-          java -jar cli/build/libs/blueprint-cli-*.jar new ci-app --database ${{ matrix.database }} --cache ${{ matrix.cache }} \
+          java -jar cli/build/libs/blueprint-cli-*.jar new ci-app --database ${{ matrix.database }} --cache ${{ matrix.cache }} --no-git ${{ matrix.flags }} \
             --parent-dir "$RUNNER_TEMP" </dev/null
 
       - name: Build it

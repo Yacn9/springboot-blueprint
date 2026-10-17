@@ -11,12 +11,13 @@ package com.acme.blueprint.cli;
  * @param versions    the Java, Spring Boot and Gradle versions to pin; null keeps the template's
  * @param database    the database the project runs on
  * @param cache       what holds the cache entries
+ * @param samples     whether the sample modules (users, notifications) are kept
  */
 record ProjectSpec(ProjectName name, String basePackage, ProjectVersions versions, Database database,
-        CacheProvider cache) {
+        CacheProvider cache, boolean samples) {
 
     ProjectSpec(ProjectName name, String basePackage) {
-        this(name, basePackage, null, Database.POSTGRESQL, CacheProvider.NONE);
+        this(name, basePackage, null, Database.POSTGRESQL, CacheProvider.NONE, true);
     }
 
     /** The defaults for a project named only by its name. */
@@ -25,15 +26,19 @@ record ProjectSpec(ProjectName name, String basePackage, ProjectVersions version
     }
 
     ProjectSpec withVersions(ProjectVersions chosen) {
-        return new ProjectSpec(name, basePackage, chosen, database, cache);
+        return new ProjectSpec(name, basePackage, chosen, database, cache, samples);
     }
 
     ProjectSpec withDatabase(Database chosen) {
-        return new ProjectSpec(name, basePackage, versions, chosen, cache);
+        return new ProjectSpec(name, basePackage, versions, chosen, cache, samples);
     }
 
     ProjectSpec withCache(CacheProvider chosen) {
-        return new ProjectSpec(name, basePackage, versions, database, chosen);
+        return new ProjectSpec(name, basePackage, versions, database, chosen, samples);
+    }
+
+    ProjectSpec withSamples(boolean kept) {
+        return new ProjectSpec(name, basePackage, versions, database, cache, kept);
     }
 
     /** The Gradle project and the directory: {@code my-shop}. */

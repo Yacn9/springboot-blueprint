@@ -67,11 +67,16 @@ final class Prompter {
 
     /** Asks yes or no; Enter means yes, the end of the input means no — nothing is installed unasked. */
     boolean confirm(String question) {
+        return confirm(question, false);
+    }
+
+    /** Asks yes or no; Enter means yes, the end of the input means {@code whenUnanswered}. */
+    boolean confirm(String question, boolean whenUnanswered) {
         return ask(question + " [Y/n]", answer -> switch (answer.strip().toLowerCase(Locale.ROOT)) {
             case "", "y", "yes" -> true;
             case "n", "no" -> false;
             default -> throw new IllegalArgumentException("Answer y or n.");
-        }).orElse(false);
+        }).orElse(whenUnanswered);
     }
 
     private String readLine() {

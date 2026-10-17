@@ -46,6 +46,14 @@ final class NewCommand implements Callable<Integer> {
             description = "none, memory, redis or memcached. Asked for when left out.")
     private String cache;
 
+    @Option(names = "--samples", negatable = true,
+            description = "Keep the sample modules (users, notifications), or start without (--no-samples). Asked for when left out.")
+    private Boolean samples;
+
+    @Option(names = "--git", negatable = true,
+            description = "git init with a first commit, or not (--no-git). Asked for when left out.")
+    private Boolean git;
+
     @Spec
     private CommandSpec spec;
 
@@ -74,13 +82,22 @@ final class NewCommand implements Callable<Integer> {
         if (templateVersions.isPresent()) {
             project = project.withVersions(chooseVersions(prompter, templateVersions.get()))
                     .withDatabase(database != null ? databaseFromOption() : Database.of(prompter.choose("Database", Database.ids())))
-                    .withCache(cache != null ? cacheFromOption() : CacheProvider.of(prompter.choose("Cache", CacheProvider.ids())));
+                    .withCache(cache != null ? cacheFromOption() : CacheProvider.of(prompter.choose("Cache", CacheProvider.ids())))
+                    .withSamples(samples != null ? samples
+                            : prompter.confirm("Include the sample modules (users, notifications)?", true));
         }
+        boolean initGit = git != null ? git : templateVersions.isPresent()
+                && prompter.confirm("Initialize a git repository with a first commit?", false);
         checkTools(prompter, out, project.versions());
 
         Path parent = parentDirectory != null ? parentDirectory : Path.of("");
         GeneratedProject generated = generator.generate(template, project, parent.resolve(project.artifact()));
 
+        if (initGit) {
+            tools.initGit(generated.directory()).ifPresentOrElse(
+                    reason -> out.println("No git repository: " + reason + "."),
+                    () -> out.println("Initialized a git repository on main: \"" + SystemTools.INITIAL_COMMIT + "\"."));
+        }
         printSummary(out, project, generated);
         return BlueprintCli.SUCCESS;
     }
