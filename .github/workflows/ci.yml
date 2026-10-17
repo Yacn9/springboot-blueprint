@@ -22,7 +22,8 @@ jobs:
           - { database: postgresql, cache: redis }
           - { database: postgresql, cache: memcached }
           - { database: oracle, cache: redis, flags: --no-samples }
-          - { database: postgresql, cache: redis, flags: --deploy kubernetes --ci --security --observability --dependabot }
+          - { database: postgresql, cache: redis, flags: --broker kafka --deploy kubernetes --ci --security --observability --dependabot }
+          - { database: postgresql, cache: none, flags: --broker redpanda --deploy docker }
           - { database: oracle, cache: memcached, flags: --deploy docker --security }
           - { database: postgresql, cache: none, flags: --deploy docker --no-compose }
     runs-on: ubuntu-latest

@@ -48,6 +48,10 @@ final class NewCommand implements Callable<Integer> {
             description = "none, memory, redis or memcached. Asked for when left out.")
     private String cache;
 
+    @Option(names = "--broker", paramLabel = "<broker>",
+            description = "none, kafka or redpanda: where the modules' events are also published. Asked for when left out.")
+    private String broker;
+
     @Option(names = "--samples", negatable = true,
             description = "Keep the sample modules (users, notifications), or start without (--no-samples). Asked for when left out.")
     private Boolean samples;
@@ -110,6 +114,7 @@ final class NewCommand implements Callable<Integer> {
             project = project.withVersions(chooseVersions(prompter, templateVersions.get()))
                     .withDatabase(database != null ? databaseFromOption() : Database.of(prompter.choose("Database", Database.ids())))
                     .withCache(cache != null ? cacheFromOption() : CacheProvider.of(prompter.choose("Cache", CacheProvider.ids())))
+                    .withBroker(broker != null ? brokerFromOption() : BrokerProvider.of(prompter.choose("Message broker", BrokerProvider.ids())))
                     .withSamples(samples != null ? samples
                             : prompter.confirm("Include the sample modules (users, notifications)?", true));
             Set<Extra> extras = EnumSet.noneOf(Extra.class);
@@ -177,6 +182,14 @@ final class NewCommand implements Callable<Integer> {
                     "Unknown deployment '" + deploy + "': choose one of " + String.join(", ", Deployment.ids()) + ".");
         }
         return Deployment.of(deploy);
+    }
+
+    private BrokerProvider brokerFromOption() {
+        if (!BrokerProvider.ids().contains(broker)) {
+            throw new ParameterException(spec.commandLine(),
+                    "Unknown broker '" + broker + "': choose one of " + String.join(", ", BrokerProvider.ids()) + ".");
+        }
+        return BrokerProvider.of(broker);
     }
 
     private CacheProvider cacheFromOption() {
@@ -260,7 +273,8 @@ final class NewCommand implements Callable<Integer> {
         out.println();
         out.println(style.ok(style.bold("Created " + project.artifact()) + " in %s (%d files, base package %s, %s, cache: %s)."
                 .formatted(generated.directory(), generated.fileCount(), project.basePackage(),
-                        project.database().displayName(), project.cache().id())));
+                        project.database().displayName(), project.cache().id())
+                        + (project.broker() != BrokerProvider.NONE ? " Events also go to " + project.broker().id() + "." : "")));
         out.println();
         out.println(style.bold("Next steps:"));
         out.println("  " + style.cyan("cd " + whereToEnter(project, generated)));

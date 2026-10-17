@@ -102,9 +102,15 @@ final class Extras {
             case MEMCACHED -> service.append("      BLUEPRINT_CACHE_MEMCACHED_SERVERS: memcached:11211\n");
             default -> { }
         }
+        if (spec.broker() != BrokerProvider.NONE) {
+            service.append("      SPRING_KAFKA_BOOTSTRAP_SERVERS: ").append(spec.broker().composeName()).append(":19092\n");
+        }
         service.append("    depends_on:\n      - ").append(database.composeService()).append('\n');
         if (spec.cache() == CacheProvider.REDIS || spec.cache() == CacheProvider.MEMCACHED) {
             service.append("      - ").append(spec.cache().id()).append('\n');
+        }
+        if (spec.broker() != BrokerProvider.NONE) {
+            service.append("      - ").append(spec.broker().composeName()).append('\n');
         }
         return service.toString();
     }

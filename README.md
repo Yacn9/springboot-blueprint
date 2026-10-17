@@ -15,6 +15,7 @@ module boundaries enforced by the build itself — not by good intentions.
 ? Gradle version: 9.8.1
 ? Database (postgresql / oracle) [postgresql]:
 ? Cache (none / memory / redis / memcached) [none]: redis
+? Message broker (none / kafka / redpanda) [none]: kafka
 ? Include the sample modules (users, notifications)? [Y/n]:
 ? Include the sample modules' tests (unit, web slice and module tests)? [Y/n]:
 ? Docker Compose for the local database and cache (bootRun starts it)? [Y/n]:
@@ -47,6 +48,7 @@ cd order-hub
 | Spring Boot, Gradle | the newest release of the template's line, looked up live | newest |
 | Database | PostgreSQL, or Oracle 23ai (one Oracle user per module) | PostgreSQL |
 | Cache | none, in memory (Caffeine), Redis, or Memcached | none |
+| Message broker | none, Kafka or Redpanda — the modules' events are published there too, after commit | none |
 | Sample modules | `users` and `notifications` — and their tests — or an empty project | keep |
 | Docker Compose | the local database and cache, started by `bootRun` | yes |
 | Deploy | none, Docker (Dockerfile + the app in compose), or Kubernetes (plus a Helm chart) | none |

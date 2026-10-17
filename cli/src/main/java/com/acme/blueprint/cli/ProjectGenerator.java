@@ -93,6 +93,7 @@ final class ProjectGenerator {
         if (!spec.samples()) {
             overlays.add(SampleModules.OVERLAY);
         }
+        overlays.addAll(spec.broker().overlays());
         overlays.addAll(spec.deploy().overlays());
         spec.extras().stream().filter(extra -> !extra.inTemplate()).map(Extra::overlay).forEach(overlays::add);
         for (String overlay : overlays) {
@@ -123,6 +124,7 @@ final class ProjectGenerator {
                 .map(text -> spec.versions() == null ? text : spec.versions().pin(source, text))
                 .map(text -> spec.database().pin(source, text))
                 .map(text -> spec.cache().pin(source, text))
+                .map(text -> spec.broker().pin(source, text))
                 .map(text -> spec.samples() ? text : SampleModules.remove(source, text))
                 .map(text -> Extras.pin(spec, source, text))
                 .map(text -> rules.content(text, source.endsWith(".md")))

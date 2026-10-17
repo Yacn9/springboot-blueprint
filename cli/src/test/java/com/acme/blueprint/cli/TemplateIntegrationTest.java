@@ -257,6 +257,23 @@ class TemplateIntegrationTest {
         assertThat(project.resolve("app/src/test/java/com/leanshop/ArchitectureRulesTests.java")).exists();
     }
 
+    /** Redpanda with the app in compose: the externalization, the broker libraries, its container and service. */
+    @Test
+    void generatesAMessageBroker(@TempDir Path work) throws IOException {
+        Path project = generate(ProjectSpec.defaultsFor(ProjectName.fromUserInput("event-shop"))
+                .withBroker(BrokerProvider.REDPANDA).withDeploy(Deployment.DOCKER), work);
+
+        assertThat(Files.readString(project.resolve("app/src/main/java/com/eventshop/EventExternalization.java"), UTF_8))
+                .contains(".selectByPackage(\"com.eventshop\")");
+        assertThat(project.resolve("app/src/test/java/com/eventshop/EventExternalizationTests.java")).exists();
+        assertThat(Files.readString(project.resolve("shared/build.gradle.kts"), UTF_8))
+                .contains("spring-modulith-events-kafka", "spring-boot-starter-kafka", "\"org.testcontainers:testcontainers-redpanda\"");
+        assertThat(Files.readString(project.resolve("shared/src/testDatabase/java/com/eventshop/shared/testing/BrokerTestcontainers.java"), UTF_8))
+                .contains("RedpandaContainer");
+        assertThat(Files.readString(project.resolve("compose.yaml"), UTF_8))
+                .contains("image: redpandadata/redpanda:", "SPRING_KAFKA_BOOTSTRAP_SERVERS: redpanda:19092", "      - redpanda");
+    }
+
     /** Without compose: no compose.yaml, no docker-compose support, a README that says how to point at a database. */
     @Test
     void generatesAProjectWithoutCompose(@TempDir Path work) throws IOException {
