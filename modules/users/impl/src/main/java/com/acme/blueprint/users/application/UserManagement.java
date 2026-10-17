@@ -12,6 +12,7 @@ import com.acme.blueprint.users.domain.DuplicateNationalCodeException;
 import com.acme.blueprint.users.domain.NationalCode;
 import com.acme.blueprint.shared.VersionMismatchException;
 
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -58,6 +59,7 @@ public class UserManagement {
      * @param expectedVersion the version the caller last read; a different
      *        current version means someone else changed the user since
      */
+    @CacheEvict(cacheNames = UserDirectoryService.CACHE, key = "#id")
     public User updateProfile(UserId id, long expectedVersion, UserProfile profile) {
         User user = loadAtVersion(id, expectedVersion);
         user.updateProfile(profile, clock.instant());
@@ -65,6 +67,7 @@ public class UserManagement {
     }
 
     /** @param expectedVersion see {@link #updateProfile} */
+    @CacheEvict(cacheNames = UserDirectoryService.CACHE, key = "#id")
     public User changeStatus(UserId id, long expectedVersion, UserStatus status) {
         User user = loadAtVersion(id, expectedVersion);
         user.changeStatus(status, clock.instant());

@@ -3,6 +3,7 @@ package com.acme.blueprint.shared.testing;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Import;
 import org.testcontainers.oracle.OracleContainer;
 import org.testcontainers.utility.DockerImageName;
 import org.testcontainers.utility.MountableFile;
@@ -18,6 +19,7 @@ import org.testcontainers.utility.MountableFile;
  * module users.
  */
 @TestConfiguration(proxyBeanMethods = false)
+@Import(CacheTestcontainers.class)
 public class DatabaseTestcontainers {
 
     private static final String IMAGE_PROPERTY = "blueprint.database-image";

@@ -26,3 +26,8 @@ springdoc-webmvc-ui = { module = "org.springdoc:springdoc-openapi-starter-webmvc
 database-jdbc-driver = { module = "org.postgresql:postgresql" }
 database-flyway = { module = "org.flywaydb:flyway-database-postgresql" }
 database-testcontainers = { module = "org.testcontainers:testcontainers-postgresql" }
+
+[bundles]
+# The cache provider's libraries; empty when the cache is off or in memory
+# without one (see spring.cache in the platform defaults).
+cache = []

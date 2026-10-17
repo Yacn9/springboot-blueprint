@@ -20,6 +20,11 @@ spring:
         jdbc:
           time_zone: UTC
 
+  # Modules cache with Spring's annotations (@Cacheable, @CacheEvict); this
+  # chooses what holds the entries.
+  cache:
+    type: none
+
   flyway:
     # Scans every jar: each module ships its own scripts under
     # db/migration/<module>/ and owns its own database schema.

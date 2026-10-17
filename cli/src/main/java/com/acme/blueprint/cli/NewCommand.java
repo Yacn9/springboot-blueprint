@@ -42,6 +42,10 @@ final class NewCommand implements Callable<Integer> {
             description = "postgresql or oracle. Asked for when left out.")
     private String database;
 
+    @Option(names = "--cache", paramLabel = "<cache>",
+            description = "none, memory, redis or memcached. Asked for when left out.")
+    private String cache;
+
     @Spec
     private CommandSpec spec;
 
@@ -69,7 +73,8 @@ final class NewCommand implements Callable<Integer> {
         Optional<ProjectVersions> templateVersions = ProjectVersions.of(template);
         if (templateVersions.isPresent()) {
             project = project.withVersions(chooseVersions(prompter, templateVersions.get()))
-                    .withDatabase(database != null ? databaseFromOption() : Database.of(prompter.choose("Database", Database.ids())));
+                    .withDatabase(database != null ? databaseFromOption() : Database.of(prompter.choose("Database", Database.ids())))
+                    .withCache(cache != null ? cacheFromOption() : CacheProvider.of(prompter.choose("Cache", CacheProvider.ids())));
         }
         checkTools(prompter, out, project.versions());
 
@@ -94,6 +99,14 @@ final class NewCommand implements Callable<Integer> {
                     "Unknown database '" + database + "': choose one of " + String.join(", ", Database.ids()) + ".");
         }
         return Database.of(database);
+    }
+
+    private CacheProvider cacheFromOption() {
+        if (!CacheProvider.ids().contains(cache)) {
+            throw new ParameterException(spec.commandLine(),
+                    "Unknown cache '" + cache + "': choose one of " + String.join(", ", CacheProvider.ids()) + ".");
+        }
+        return CacheProvider.of(cache);
     }
 
     private ProjectName nameFromPrompt(Prompter prompter) {
@@ -167,8 +180,9 @@ final class NewCommand implements Callable<Integer> {
 
     private void printSummary(PrintWriter out, ProjectSpec project, GeneratedProject generated) {
         out.println();
-        out.printf("Created %s in %s (%d files, base package %s, %s).%n", project.artifact(), generated.directory(),
-                generated.fileCount(), project.basePackage(), project.database().displayName());
+        out.printf("Created %s in %s (%d files, base package %s, %s, cache: %s).%n", project.artifact(),
+                generated.directory(), generated.fileCount(), project.basePackage(), project.database().displayName(),
+                project.cache().id());
         out.println();
         out.println("Next steps:");
         out.println("  cd " + whereToEnter(project, generated));

@@ -42,6 +42,7 @@ jbang blueprint@Yacn9/springboot-blueprint new
 | Spring Boot version | the template's and newer releases of its major line (4.x), up to 3, from Maven Central | the newest |
 | Gradle version | the template's and the current release, if it is of the same major line (9.x) | the newest |
 | Database | `postgresql` or `oracle` (also `--database <id>`) | postgresql |
+| Cache | `none`, `memory` (Caffeine), `redis` or `memcached` (also `--cache <id>`) | none |
 
 Hibernate, Spring Modulith's runtime and the other managed libraries follow
 from the Spring Boot version (its BOM). A question with one choice is shown,

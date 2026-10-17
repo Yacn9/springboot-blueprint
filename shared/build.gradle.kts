@@ -25,6 +25,9 @@ java {
 dependencies {
     api("org.springframework.data:spring-data-commons")
     implementation("org.springframework.boot:spring-boot-starter-webmvc")
+    // Spring's cache abstraction, and the provider chosen for this project.
+    implementation("org.springframework.boot:spring-boot-starter-cache")
+    implementation(libs.bundles.cache)
     implementation("org.springframework:spring-tx")
     // ConstraintViolations reads Hibernate's exception type. Every -impl project
     // already has Hibernate at runtime through Spring Data JPA.

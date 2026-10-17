@@ -10,6 +10,7 @@ import java.nio.charset.CodingErrorAction;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.zip.ZipEntry;
@@ -41,7 +42,7 @@ final class ProjectGenerator {
         TargetDirectory directory = TargetDirectory.claim(target);
         try (InputStream archive = template.archive().get()) {
             directory.create();
-            int files = unpack(archive, overlay(template, spec.database()), new RewriteRules(spec), spec, directory);
+            int files = unpack(archive, overlay(template, spec), new RewriteRules(spec), spec, directory);
             writeReadme(template.readme(), spec, directory);
             return new GeneratedProject(directory.path(), files + 1);
         } catch (IOException | RuntimeException failure) {
@@ -78,13 +79,15 @@ final class ProjectGenerator {
         return files;
     }
 
-    /** The overlay's files for this database, keyed by the template path they replace or add. */
-    private static Map<String, byte[]> overlay(ProjectTemplate template, Database database) throws IOException {
+    /** The chosen database's and cache's overlay files, keyed by the template path they replace or add. */
+    private static Map<String, byte[]> overlay(ProjectTemplate template, ProjectSpec spec) throws IOException {
         Map<String, byte[]> files = new LinkedHashMap<>();
-        try (InputStream archive = template.archive().get(); ZipInputStream zip = new ZipInputStream(archive)) {
-            for (ZipEntry entry = zip.getNextEntry(); entry != null; entry = zip.getNextEntry()) {
-                if (!entry.isDirectory() && entry.getName().startsWith(database.overlay())) {
-                    files.put(entry.getName().substring(database.overlay().length()), zip.readAllBytes());
+        for (String overlay : List.of(spec.database().overlay(), spec.cache().overlay())) {
+            try (InputStream archive = template.archive().get(); ZipInputStream zip = new ZipInputStream(archive)) {
+                for (ZipEntry entry = zip.getNextEntry(); entry != null; entry = zip.getNextEntry()) {
+                    if (!entry.isDirectory() && entry.getName().startsWith(overlay)) {
+                        files.put(entry.getName().substring(overlay.length()), zip.readAllBytes());
+                    }
                 }
             }
         }
@@ -104,9 +107,10 @@ final class ProjectGenerator {
     /** Text is renamed as UTF-8; whatever is not text (the Gradle wrapper jar) passes through byte for byte. */
     private static byte[] rewritten(byte[] content, String source, RewriteRules rules, ProjectSpec spec) {
         return asText(content)
-                .map(text -> rules.content(text, source.endsWith(".md")))
                 .map(text -> spec.versions() == null ? text : spec.versions().pin(source, text))
                 .map(text -> spec.database().pin(source, text))
+                .map(text -> spec.cache().pin(source, text))
+                .map(text -> rules.content(text, source.endsWith(".md")))
                 .map(text -> text.getBytes(UTF_8))
                 .orElse(content);
     }

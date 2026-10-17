@@ -161,6 +161,29 @@ class TemplateIntegrationTest {
         assertThat(oracle.resolve("overlays")).doesNotExist();
     }
 
+    /** Memcached on Oracle: both overlays, the catalog bundle, the adapter's property renamed alike everywhere. */
+    @Test
+    void generatesAMemcachedCacheOnTopOfTheOracleOverlay(@TempDir Path work) throws IOException {
+        Path project = generate(ProjectSpec.defaultsFor(ProjectName.fromUserInput("cached-shop"))
+                .withDatabase(Database.ORACLE).withCache(CacheProvider.MEMCACHED), work);
+
+        assertThat(Files.readString(project.resolve("gradle/libs.versions.toml"), UTF_8))
+                .contains("cache = [\"cache-memcached\"]", "cache-memcached = { module = \"com.googlecode.xmemcached:xmemcached\"");
+        assertThat(Files.readString(project.resolve("shared/src/main/resources/config/cachedshop-platform.yml"), UTF_8))
+                .contains("cachedshop:\n  cache:\n    memcached:\n      servers: localhost:11211").doesNotContain("type: none");
+        assertThat(Files.readString(project.resolve("compose.yaml"), UTF_8)).contains("gvenzl/oracle-free", "image: memcached:");
+        assertThat(Files.readString(project.resolve("shared/src/main/java/com/cachedshop/shared/cache/MemcachedCacheConfiguration.java"), UTF_8))
+                .contains("${cachedshop.cache.memcached.servers}");
+        assertThat(Files.readString(project.resolve("shared/src/testDatabase/java/com/cachedshop/shared/testing/CacheTestcontainers.java"), UTF_8))
+                .contains("memcached:1.6-alpine", "\"cachedshop.cache.memcached.servers\"");
+        List<String> offenders = textFiles(project).stream()
+                .filter(file -> !file.toString().endsWith(".md"))
+                .filter(file -> mentions(file, "acme", "blueprint"))
+                .map(file -> project.relativize(file).toString())
+                .toList();
+        assertThat(offenders).isEmpty();
+    }
+
     /** A name that contains the blueprint's own word must come out once, not rewritten again. */
     @Test
     void generatesConsistentlyForANameThatContainsBlueprint(@TempDir Path work) throws IOException {

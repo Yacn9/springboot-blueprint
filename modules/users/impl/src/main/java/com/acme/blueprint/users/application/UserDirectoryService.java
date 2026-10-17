@@ -8,6 +8,7 @@ import com.acme.blueprint.users.UserSummary;
 import com.acme.blueprint.users.domain.User;
 import com.acme.blueprint.users.domain.UserRepository;
 
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -21,6 +22,9 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional(readOnly = true)
 class UserDirectoryService implements UserDirectory {
 
+    /** Lookups from other modules, cached; UserManagement evicts a user's entry when it changes. */
+    static final String CACHE = "users";
+
     private final UserRepository users;
 
     UserDirectoryService(UserRepository users) {
@@ -28,6 +32,7 @@ class UserDirectoryService implements UserDirectory {
     }
 
     @Override
+    @Cacheable(cacheNames = CACHE, unless = "#result == null")
     public Optional<UserSummary> findById(UserId id) {
         return users.findById(id).map(UserDirectoryService::toSummary);
     }

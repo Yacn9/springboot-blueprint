@@ -273,6 +273,22 @@ Adapters pass the name exactly as the migration declares it.
 registry mirror; `DatabaseTestcontainers` declares it a substitute for the
 vendor's official image.
 
+### Caching
+
+Modules cache with Spring's annotations; `:shared` turns them on
+(`CacheConfiguration`) and `spring.cache` in the platform defaults says what
+holds the entries — chosen when the project is generated: nothing
+(`type: none`, the annotations do nothing), Caffeine in memory, Redis, or
+Memcached through the adapter in `:shared` (Spring Boot has no Memcached
+support). The code is the same whichever it is.
+
+`UserDirectory.findById` — what other modules ask the users module — is cached;
+`UserManagement` evicts a user's entry when their profile or status changes.
+Whatever is cached must be `Serializable` (Redis and Memcached store it
+serialised), which is why `UserId` and `UserSummary` are. A server cache's
+entries expire after ten minutes, the bound on how stale a reader in another
+instance can be.
+
 ---
 
 ## REST Conventions

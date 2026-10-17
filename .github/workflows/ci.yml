@@ -13,7 +13,13 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        database: [postgresql, oracle]
+        # Each database once without a cache, and each cache server on PostgreSQL.
+        include:
+          - { database: postgresql, cache: none }
+          - { database: oracle, cache: none }
+          - { database: postgresql, cache: memory }
+          - { database: postgresql, cache: redis }
+          - { database: postgresql, cache: memcached }
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -23,13 +29,13 @@ jobs:
           distribution: temurin
           java-version: "25"
 
-      - name: Generate a ${{ matrix.database }} project
+      - name: Generate a ${{ matrix.database }} project, cache ${{ matrix.cache }}
         env:
           BLUEPRINT_OFFLINE: "1"   # the template's own versions, not whatever was released today
         run: |
           chmod +x gradlew
           ./gradlew -p cli jar --console=plain
-          java -jar cli/build/libs/blueprint-cli-*.jar new ci-app --database ${{ matrix.database }} \
+          java -jar cli/build/libs/blueprint-cli-*.jar new ci-app --database ${{ matrix.database }} --cache ${{ matrix.cache }} \
             --parent-dir "$RUNNER_TEMP" </dev/null
 
       - name: Build it
@@ -62,5 +68,5 @@ jobs:
         if: failure()
         uses: actions/upload-artifact@v5
         with:
-          name: test-reports-${{ matrix.database }}
+          name: test-reports-${{ matrix.database }}-${{ matrix.cache }}
           path: ${{ runner.temp }}/ci-app/**/build/reports/tests/

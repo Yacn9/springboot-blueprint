@@ -1,5 +1,6 @@
 package com.acme.blueprint.users;
 
+import java.io.Serializable;
 import java.util.Objects;
 import java.util.UUID;
 
@@ -8,7 +9,7 @@ import java.util.UUID;
  * {@code UUID}, so a notification id can never be passed where a user id
  * is expected.
  */
-public record UserId(UUID value) {
+public record UserId(UUID value) implements Serializable {
 
     public UserId {
         Objects.requireNonNull(value, "value");
