@@ -16,7 +16,7 @@ import org.testcontainers.utility.DockerImageName;
  */
 @TestConfiguration(proxyBeanMethods = false)
 @ImportTestcontainers
-@Import({CacheTestcontainers.class, BrokerTestcontainers.class})
+@Import({CacheTestcontainers.class, BrokerTestcontainers.class, StorageTestcontainers.class})
 public class DatabaseTestcontainers {
 
     /** Set by the Gradle test task from {@code database-image} in libs.versions.toml. */

@@ -20,7 +20,7 @@ import org.testcontainers.utility.MountableFile;
  */
 @TestConfiguration(proxyBeanMethods = false)
 @ImportTestcontainers
-@Import({CacheTestcontainers.class, BrokerTestcontainers.class})
+@Import({CacheTestcontainers.class, BrokerTestcontainers.class, StorageTestcontainers.class})
 public class DatabaseTestcontainers {
 
     private static final String IMAGE_PROPERTY = "blueprint.database-image";

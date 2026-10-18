@@ -105,12 +105,18 @@ final class Extras {
         if (spec.broker() != BrokerProvider.NONE) {
             service.append(spec.broker().appEnvironment());
         }
+        if (spec.storage() != StorageProvider.NONE) {
+            service.append(spec.storage().appEnvironment());
+        }
         service.append("    depends_on:\n      - ").append(database.composeService()).append('\n');
         if (spec.cache() == CacheProvider.REDIS || spec.cache() == CacheProvider.MEMCACHED) {
             service.append("      - ").append(spec.cache().id()).append('\n');
         }
         if (spec.broker() != BrokerProvider.NONE) {
             service.append("      - ").append(spec.broker().composeName()).append('\n');
+        }
+        if (spec.storage() != StorageProvider.NONE) {
+            service.append("      - ").append(spec.storage().composeName()).append('\n');
         }
         return service.toString();
     }
@@ -151,6 +157,18 @@ final class Extras {
                     .append(" \\\n  --set image.repository=<registry>/").append(spec.artifact())
                     .append(" \\\n  --set datasource.url=<jdbc url> --set datasource.password=<password>\n```\n\n")
                     .append("Probes use Spring Boot's liveness and readiness groups. The database runs outside the cluster.\n");
+        }
+        if (spec.storage() != StorageProvider.NONE) {
+            // The README is not renamed like the other files: the variables are spelt out with the project's name.
+            String variable = spec.shortName().toUpperCase(java.util.Locale.ROOT) + "_STORAGE_";
+            more.append("\n## Object storage\n\nFiles outside the database go through `ObjectStore` in `:shared` — an S3 client, so\n")
+                    .append("any S3-compatible server works")
+                    .append(spec.has(Extra.COMPOSE) ? "; compose.yaml runs " + spec.storage().choice().label() : "")
+                    .append(". Point it at yours with `").append(variable).append("ENDPOINT`,\n`")
+                    .append(variable).append("ACCESS_KEY`, `").append(variable).append("SECRET_KEY` and `")
+                    .append(variable).append("BUCKET`")
+                    .append(spec.deploy() == Deployment.KUBERNETES ? " (with Helm: `--set env." + variable + "ENDPOINT=…`)" : "")
+                    .append(".\nEach module keeps its objects under its own key prefix.\n");
         }
         if (spec.has(Extra.SECURITY)) {
             more.append("\n## Security\n\nEvery endpoint except health, info and the OpenAPI documents needs a JWT\n")

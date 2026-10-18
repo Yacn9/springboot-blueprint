@@ -14,6 +14,7 @@ import java.util.Set;
  * @param database      the database the project runs on
  * @param cache         what holds the cache entries
  * @param broker        the message broker the events are also published to
+ * @param storage       where files outside the database are kept
  * @param modules       the sample modules kept, of {@link SampleModules#ALL}
  * @param testedModules the sample modules whose tests are kept — of those kept
  * @param deploy        where the project is meant to run
@@ -21,7 +22,7 @@ import java.util.Set;
  * @param scans         the OWASP scans its security workflow runs; none, no workflow
  */
 record ProjectSpec(ProjectName name, String basePackage, ProjectVersions versions, Database database,
-        CacheProvider cache, BrokerProvider broker, Set<String> modules, Set<String> testedModules, Deployment deploy,
+        CacheProvider cache, BrokerProvider broker, StorageProvider storage, Set<String> modules, Set<String> testedModules, Deployment deploy,
         Set<Extra> extras, Set<Scan> scans) {
 
     ProjectSpec {
@@ -36,7 +37,7 @@ record ProjectSpec(ProjectName name, String basePackage, ProjectVersions version
     }
 
     ProjectSpec(ProjectName name, String basePackage) {
-        this(name, basePackage, null, Database.POSTGRESQL, CacheProvider.NONE, BrokerProvider.NONE,
+        this(name, basePackage, null, Database.POSTGRESQL, CacheProvider.NONE, BrokerProvider.NONE, StorageProvider.NONE,
                 Set.copyOf(SampleModules.ALL), Set.copyOf(SampleModules.ALL), Deployment.NONE, Set.of(Extra.COMPOSE), Set.of());
     }
 
@@ -46,23 +47,27 @@ record ProjectSpec(ProjectName name, String basePackage, ProjectVersions version
     }
 
     ProjectSpec withVersions(ProjectVersions chosen) {
-        return new ProjectSpec(name, basePackage, chosen, database, cache, broker, modules, testedModules, deploy, extras, scans);
+        return new ProjectSpec(name, basePackage, chosen, database, cache, broker, storage, modules, testedModules, deploy, extras, scans);
     }
 
     ProjectSpec withDatabase(Database chosen) {
-        return new ProjectSpec(name, basePackage, versions, chosen, cache, broker, modules, testedModules, deploy, extras, scans);
+        return new ProjectSpec(name, basePackage, versions, chosen, cache, broker, storage, modules, testedModules, deploy, extras, scans);
     }
 
     ProjectSpec withCache(CacheProvider chosen) {
-        return new ProjectSpec(name, basePackage, versions, database, chosen, broker, modules, testedModules, deploy, extras, scans);
+        return new ProjectSpec(name, basePackage, versions, database, chosen, broker, storage, modules, testedModules, deploy, extras, scans);
     }
 
     ProjectSpec withBroker(BrokerProvider chosen) {
-        return new ProjectSpec(name, basePackage, versions, database, cache, chosen, modules, testedModules, deploy, extras, scans);
+        return new ProjectSpec(name, basePackage, versions, database, cache, chosen, storage, modules, testedModules, deploy, extras, scans);
+    }
+
+    ProjectSpec withStorage(StorageProvider chosen) {
+        return new ProjectSpec(name, basePackage, versions, database, cache, broker, chosen, modules, testedModules, deploy, extras, scans);
     }
 
     ProjectSpec withModules(Set<String> chosen) {
-        return new ProjectSpec(name, basePackage, versions, database, cache, broker, chosen, testedModules, deploy, extras, scans);
+        return new ProjectSpec(name, basePackage, versions, database, cache, broker, storage, chosen, testedModules, deploy, extras, scans);
     }
 
     /** All the sample modules, or none. */
@@ -71,19 +76,19 @@ record ProjectSpec(ProjectName name, String basePackage, ProjectVersions version
     }
 
     ProjectSpec withTests(Set<String> chosen) {
-        return new ProjectSpec(name, basePackage, versions, database, cache, broker, modules, chosen, deploy, extras, scans);
+        return new ProjectSpec(name, basePackage, versions, database, cache, broker, storage, modules, chosen, deploy, extras, scans);
     }
 
     ProjectSpec withDeploy(Deployment chosen) {
-        return new ProjectSpec(name, basePackage, versions, database, cache, broker, modules, testedModules, chosen, extras, scans);
+        return new ProjectSpec(name, basePackage, versions, database, cache, broker, storage, modules, testedModules, chosen, extras, scans);
     }
 
     ProjectSpec withExtras(Set<Extra> chosen) {
-        return new ProjectSpec(name, basePackage, versions, database, cache, broker, modules, testedModules, deploy, chosen, scans);
+        return new ProjectSpec(name, basePackage, versions, database, cache, broker, storage, modules, testedModules, deploy, chosen, scans);
     }
 
     ProjectSpec withScans(Set<Scan> chosen) {
-        return new ProjectSpec(name, basePackage, versions, database, cache, broker, modules, testedModules, deploy, extras, chosen);
+        return new ProjectSpec(name, basePackage, versions, database, cache, broker, storage, modules, testedModules, deploy, extras, chosen);
     }
 
     boolean has(Extra extra) {
