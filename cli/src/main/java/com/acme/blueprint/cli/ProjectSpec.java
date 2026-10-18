@@ -8,21 +8,36 @@ import java.util.Set;
  * role derives from the project name; a later question (a base package, a
  * database) changes the one accessor it concerns and nothing else.
  *
- * @param name        what the user calls the project
- * @param basePackage the Java base package, such as {@code com.myshop}
- * @param versions    the Java, Spring Boot and Gradle versions to pin; null keeps the template's
- * @param database    the database the project runs on
- * @param cache       what holds the cache entries
- * @param broker      the message broker the events are also published to
- * @param samples     whether the sample modules (users, notifications) are kept
- * @param deploy      where the project is meant to run
- * @param extras      the yes-or-no parts it has
+ * @param name          what the user calls the project
+ * @param basePackage   the Java base package, such as {@code com.myshop}
+ * @param versions      the Java, Spring Boot and Gradle versions to pin; null keeps the template's
+ * @param database      the database the project runs on
+ * @param cache         what holds the cache entries
+ * @param broker        the message broker the events are also published to
+ * @param modules       the sample modules kept, of {@link SampleModules#ALL}
+ * @param testedModules the sample modules whose tests are kept — of those kept
+ * @param deploy        where the project is meant to run
+ * @param extras        the yes-or-no parts it has
+ * @param scans         the OWASP scans its security workflow runs; none, no workflow
  */
 record ProjectSpec(ProjectName name, String basePackage, ProjectVersions versions, Database database,
-        CacheProvider cache, BrokerProvider broker, boolean samples, Deployment deploy, Set<Extra> extras) {
+        CacheProvider cache, BrokerProvider broker, Set<String> modules, Set<String> testedModules, Deployment deploy,
+        Set<Extra> extras, Set<Scan> scans) {
+
+    ProjectSpec {
+        modules = Set.copyOf(modules);
+        testedModules = Set.copyOf(testedModules);
+        extras = Set.copyOf(extras);
+        scans = Set.copyOf(scans);
+        // notifications compiles against users' contract (UserId, UserDirectory, UserRegistered).
+        if (modules.contains(SampleModules.NOTIFICATIONS) && !modules.contains(SampleModules.USERS)) {
+            throw new IllegalArgumentException("The notifications sample module needs the users module.");
+        }
+    }
 
     ProjectSpec(ProjectName name, String basePackage) {
-        this(name, basePackage, null, Database.POSTGRESQL, CacheProvider.NONE, BrokerProvider.NONE, true, Deployment.NONE, Set.of(Extra.TESTS, Extra.COMPOSE));
+        this(name, basePackage, null, Database.POSTGRESQL, CacheProvider.NONE, BrokerProvider.NONE,
+                Set.copyOf(SampleModules.ALL), Set.copyOf(SampleModules.ALL), Deployment.NONE, Set.of(Extra.COMPOSE), Set.of());
     }
 
     /** The defaults for a project named only by its name. */
@@ -31,35 +46,58 @@ record ProjectSpec(ProjectName name, String basePackage, ProjectVersions version
     }
 
     ProjectSpec withVersions(ProjectVersions chosen) {
-        return new ProjectSpec(name, basePackage, chosen, database, cache, broker, samples, deploy, extras);
+        return new ProjectSpec(name, basePackage, chosen, database, cache, broker, modules, testedModules, deploy, extras, scans);
     }
 
     ProjectSpec withDatabase(Database chosen) {
-        return new ProjectSpec(name, basePackage, versions, chosen, cache, broker, samples, deploy, extras);
+        return new ProjectSpec(name, basePackage, versions, chosen, cache, broker, modules, testedModules, deploy, extras, scans);
     }
 
     ProjectSpec withCache(CacheProvider chosen) {
-        return new ProjectSpec(name, basePackage, versions, database, chosen, broker, samples, deploy, extras);
+        return new ProjectSpec(name, basePackage, versions, database, chosen, broker, modules, testedModules, deploy, extras, scans);
+    }
+
+    ProjectSpec withBroker(BrokerProvider chosen) {
+        return new ProjectSpec(name, basePackage, versions, database, cache, chosen, modules, testedModules, deploy, extras, scans);
+    }
+
+    ProjectSpec withModules(Set<String> chosen) {
+        return new ProjectSpec(name, basePackage, versions, database, cache, broker, chosen, testedModules, deploy, extras, scans);
+    }
+
+    /** All the sample modules, or none. */
+    ProjectSpec withSamples(boolean kept) {
+        return withModules(kept ? Set.copyOf(SampleModules.ALL) : Set.of());
+    }
+
+    ProjectSpec withTests(Set<String> chosen) {
+        return new ProjectSpec(name, basePackage, versions, database, cache, broker, modules, chosen, deploy, extras, scans);
     }
 
     ProjectSpec withDeploy(Deployment chosen) {
-        return new ProjectSpec(name, basePackage, versions, database, cache, broker, samples, chosen, extras);
+        return new ProjectSpec(name, basePackage, versions, database, cache, broker, modules, testedModules, chosen, extras, scans);
     }
 
     ProjectSpec withExtras(Set<Extra> chosen) {
-        return new ProjectSpec(name, basePackage, versions, database, cache, broker, samples, deploy, Set.copyOf(chosen));
+        return new ProjectSpec(name, basePackage, versions, database, cache, broker, modules, testedModules, deploy, chosen, scans);
+    }
+
+    ProjectSpec withScans(Set<Scan> chosen) {
+        return new ProjectSpec(name, basePackage, versions, database, cache, broker, modules, testedModules, deploy, extras, chosen);
     }
 
     boolean has(Extra extra) {
         return extras.contains(extra);
     }
 
-    ProjectSpec withBroker(BrokerProvider chosen) {
-        return new ProjectSpec(name, basePackage, versions, database, cache, chosen, samples, deploy, extras);
+    /** Whether any sample module is kept. */
+    boolean samples() {
+        return !modules.isEmpty();
     }
 
-    ProjectSpec withSamples(boolean kept) {
-        return new ProjectSpec(name, basePackage, versions, database, cache, broker, kept, deploy, extras);
+    /** Whether the sample module is kept, its tests too. */
+    boolean tested(String module) {
+        return modules.contains(module) && testedModules.contains(module);
     }
 
     /** The Gradle project and the directory: {@code my-shop}. */

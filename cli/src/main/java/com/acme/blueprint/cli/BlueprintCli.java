@@ -18,8 +18,8 @@ import picocli.CommandLine.Spec;
  * Entry point of the {@code blueprint} command.
  *
  * <p>Exit codes, for every command: {@link #SUCCESS}, {@link #GENERATION_FAILED}
- * (the request was fine, the work was not) and {@link #USAGE_ERROR} (the command
- * line was not). Failures print {@code error: <reason>} on standard error and
+ * (the request was fine, the work was not), {@link #USAGE_ERROR} (the command
+ * line was not) and {@link #CANCELLED} (Ctrl-C at a question). Failures print {@code error: <reason>} on standard error and
  * never a stack trace.
  */
 @Command(name = "blueprint", mixinStandardHelpOptions = true, versionProvider = BlueprintCli.Version.class,
@@ -29,6 +29,8 @@ public final class BlueprintCli implements Runnable {
     static final int SUCCESS = 0;
     static final int GENERATION_FAILED = 1;
     static final int USAGE_ERROR = 2;
+    /** Ctrl-C at a question, as a shell reports an interrupted command. */
+    static final int CANCELLED = 130;
 
     /** The template packed into the jar by the {@code templateArchive} Gradle task. */
     private static final String BUNDLED_TEMPLATE = "/template/template.zip";
@@ -44,18 +46,19 @@ public final class BlueprintCli implements Runnable {
 
     /** The command line with its subcommands wired to the given template and input. */
     static CommandLine commandLine(ProjectTemplate template, BufferedReader promptInput) {
-        return commandLine(template, promptInput, Releases.online(), SystemTools.local(), Style.PLAIN);
+        return commandLine(template, promptInput, null, Releases.online(), SystemTools.local(), Style.PLAIN);
     }
 
     /** As above, with where newer releases come from and the machine's tools made explicit — for tests. */
     static CommandLine commandLine(ProjectTemplate template, BufferedReader promptInput, Releases releases, SystemTools tools) {
-        return commandLine(template, promptInput, releases, tools, Style.PLAIN);
+        return commandLine(template, promptInput, null, releases, tools, Style.PLAIN);
     }
 
-    static CommandLine commandLine(ProjectTemplate template, BufferedReader promptInput, Releases releases, SystemTools tools,
-            Style style) {
+    /** As above, with menus on {@code terminal} — null where there is no interactive terminal. */
+    static CommandLine commandLine(ProjectTemplate template, BufferedReader promptInput, Keyboard terminal, Releases releases,
+            SystemTools tools, Style style) {
         CommandLine commandLine = new CommandLine(new BlueprintCli());
-        commandLine.addSubcommand(new NewCommand(template, promptInput, new ProjectGenerator(), releases, tools, style));
+        commandLine.addSubcommand(new NewCommand(template, promptInput, terminal, new ProjectGenerator(), releases, tools, style));
         // Set after the subcommands are added: a setting reaches only the commands that exist when it is made.
         commandLine.setParameterExceptionHandler((exception, arguments) -> {
             CommandLine failed = exception.getCommandLine();
@@ -64,6 +67,10 @@ public final class BlueprintCli implements Runnable {
             return USAGE_ERROR;
         });
         commandLine.setExecutionExceptionHandler((exception, failed, parsed) -> {
+            if (exception instanceof PromptCancelledException) {
+                failed.getErr().println(exception.getMessage());
+                return CANCELLED;
+            }
             failed.getErr().println("error: " + (exception.getMessage() != null ? exception.getMessage() : exception));
             return GENERATION_FAILED;
         });
@@ -73,7 +80,18 @@ public final class BlueprintCli implements Runnable {
     public static void main(String[] args) {
         BufferedReader stdin = new BufferedReader(new InputStreamReader(System.in, Charset.defaultCharset()));
         ProjectTemplate template = new ProjectTemplate(BlueprintCli::bundledArchive, bundledReadme());
-        System.exit(commandLine(template, stdin, Releases.online(), SystemTools.local(), Style.forTerminal()).execute(args));
+        Style style = Style.forTerminal();
+        // Menus only where colours are: an interactive terminal, not a pipe, CI or NO_COLOR.
+        TerminalKeyboard terminal = style.interactive() ? TerminalKeyboard.open().orElse(null) : null;
+        int exitCode;
+        try {
+            exitCode = commandLine(template, stdin, terminal, Releases.online(), SystemTools.local(), style).execute(args);
+        } finally {
+            if (terminal != null) {
+                terminal.close();
+            }
+        }
+        System.exit(exitCode);
     }
 
     private static InputStream bundledArchive() {

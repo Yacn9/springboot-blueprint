@@ -49,6 +49,11 @@ enum Database {
         return displayName;
     }
 
+    /** As the menu shows it. */
+    Choice choice() {
+        return this == ORACLE ? Choice.of(id, displayName, "Oracle Database 23ai Free, a user per module") : Choice.of(id, displayName);
+    }
+
     /** The database's service name in compose.yaml. */
     String composeService() {
         return composeService;

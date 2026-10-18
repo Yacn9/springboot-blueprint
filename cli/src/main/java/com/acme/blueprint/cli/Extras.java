@@ -117,7 +117,7 @@ final class Extras {
 
     private static String dependabot(ProjectSpec spec, String text) {
         String updates = text;
-        if (spec.has(Extra.CI) || spec.has(Extra.SCANS)) {
+        if (spec.has(Extra.CI) || !spec.scans().isEmpty()) {
             updates += ecosystem("github-actions");
         }
         if (spec.deploy().containerised()) {

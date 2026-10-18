@@ -10,6 +10,10 @@ version = "0.0.3"
 
 dependencies {
     implementation("info.picocli:picocli:4.7.7")
+    // Arrow-key menus: raw key presses and line editing on every terminal, Windows' console included (JNI).
+    implementation("org.jline:jline-terminal:3.30.6")
+    implementation("org.jline:jline-terminal-jni:3.30.6")
+    implementation("org.jline:jline-reader:3.30.6")
 
     testImplementation(platform("org.junit:junit-bom:6.0.3"))
     testImplementation("org.junit.jupiter:junit-jupiter")
@@ -34,11 +38,11 @@ val repositoryRoot: File = layout.projectDirectory.dir("..").asFile
 val templateZip: Provider<RegularFile> = layout.buildDirectory.file("template/template.zip")
 
 // Never in a template, whatever git says: version control, tool state, build output, and everything
-// that belongs to the blueprint's own distribution — this CLI, its installer and its release workflow.
+// that belongs to the blueprint's own distribution — this CLI, its installer, its workflows and Qodana's settings.
 val excludedDirectories = setOf(".git", ".gradle", ".kotlin", ".idea", ".vscode", ".claude", ".settings", "build", "out", "bin")
 val excludedFileSuffixes = listOf(".iml", ".classpath", ".project")
 // Top-level only: an overlay's own .github (the generated project's CI) is part of the template.
-val distributionOnly = setOf("cli", "install.sh", "jbang-catalog.json", ".github")
+val distributionOnly = setOf("cli", "install.sh", "jbang-catalog.json", ".github", "qodana.yaml")
 
 /** Whether a file or directory below the repository root is, by its place alone, part of the template. */
 fun isInTemplate(path: File): Boolean {
@@ -93,13 +97,15 @@ val templateArchive = tasks.register("templateArchive") {
     }
 }
 
-// --- One runnable jar: the CLI, picocli and the template --------------------
+// --- One runnable jar: the CLI, picocli, JLine and the template -------------
 
 tasks.jar {
     archiveBaseName = "blueprint-cli"
     dependsOn(templateArchive)
     manifest {
-        attributes("Main-Class" to application.mainClass, "Implementation-Version" to project.version)
+        // Enable-Native-Access: JLine's Windows console support loads a native library, which Java 24+ warns about otherwise.
+        attributes("Main-Class" to application.mainClass, "Implementation-Version" to project.version,
+            "Enable-Native-Access" to "ALL-UNNAMED")
     }
     from(templateArchive) { into("template") }
     from({ configurations.runtimeClasspath.get().map { if (it.isDirectory) it else zipTree(it) } })

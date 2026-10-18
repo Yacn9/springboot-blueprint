@@ -137,6 +137,7 @@ class TemplateIntegrationTest {
         assertThat(project.resolve("cli")).doesNotExist();
         assertThat(project.resolve("install.sh")).doesNotExist();
         assertThat(project.resolve("jbang-catalog.json")).doesNotExist();
+        assertThat(project.resolve("qodana.yaml")).doesNotExist();
         assertThat(project.resolve("overlays")).doesNotExist();
         assertThat(project.resolve(".github")).doesNotExist();
         assertThat(project.resolve(".git")).doesNotExist();
@@ -249,7 +250,7 @@ class TemplateIntegrationTest {
     /** The samples without their tests: modules keep their code, lose src/test; the application's tests stay. */
     @Test
     void generatesTheSamplesWithoutTheirTests(@TempDir Path work) throws IOException {
-        Path project = generate(ProjectSpec.defaultsFor(ProjectName.fromUserInput("lean-shop")).withExtras(java.util.Set.of(Extra.COMPOSE)), work);
+        Path project = generate(ProjectSpec.defaultsFor(ProjectName.fromUserInput("lean-shop")).withTests(java.util.Set.of()), work);
 
         assertThat(project.resolve("modules/users/impl/src/main")).isDirectory();
         assertThat(project.resolve("modules/users/impl/src/test")).doesNotExist();
@@ -295,12 +296,54 @@ class TemplateIntegrationTest {
         ProjectVersions versions = ProjectVersions.of(new ProjectTemplate(TemplateIntegrationTest::openArchive, "")).orElseThrow();
         Path project = generate(ProjectSpec.defaultsFor(ProjectName.fromUserInput("safe-shop"))
                 .withVersions(new ProjectVersions("21", versions.springBoot(), versions.gradle(), versions.gradleSha256()))
-                .withExtras(java.util.Set.of(Extra.COMPOSE, Extra.SCANS)), work);
+                .withScans(java.util.EnumSet.allOf(Scan.class)), work);
 
         assertThat(Files.readString(project.resolve(".github/workflows/security.yml"), UTF_8))
                 .contains("github/codeql-action/analyze@v4", "zaproxy/action-baseline@", "dependencyCheckAggregate", "java-version: \"21\"")
                 .doesNotContain("java-version: \"25\"");
         assertThat(Files.readString(project.resolve("build.gradle.kts"), UTF_8)).contains("id(\"org.owasp.dependencycheck\")");
+    }
+
+    /** Users alone: no notifications anywhere — build, end-to-end test, README; its own tests kept on request. */
+    @Test
+    void generatesTheUsersModuleAlone(@TempDir Path work) throws IOException {
+        Path project = generate(ProjectSpec.defaultsFor(ProjectName.fromUserInput("user-shop"))
+                .withDatabase(Database.ORACLE).withModules(java.util.Set.of("users")), work, realReadme());
+
+        assertThat(project.resolve("modules/users/impl/src/test")).isDirectory();
+        assertThat(project.resolve("modules/notifications")).doesNotExist();
+        assertThat(Files.readString(project.resolve("settings.gradle.kts"), UTF_8))
+                .contains("businessModule(\"users\")").doesNotContain("notifications");
+        assertThat(Files.readString(project.resolve("app/build.gradle.kts"), UTF_8))
+                .contains("runtimeOnly(project(\":users-impl\"))").doesNotContain("notifications");
+        assertThat(Files.readString(project.resolve("app/src/test/java/com/usershop/UserShopApplicationTests.java"), UTF_8))
+                .contains("registersAUserAndReadsItBack").doesNotContain("notifications");
+        assertThat(Files.readString(project.resolve("README.md"), UTF_8))
+                .contains(":users-api", "Replace or delete it\nonce you have your own modules")
+                .doesNotContain("notifications");
+    }
+
+    /** Tests for one module of two: the other keeps its code, loses its tests. */
+    @Test
+    void keepsTheTestsOfTheModulesChosen(@TempDir Path work) throws IOException {
+        Path project = generate(ProjectSpec.defaultsFor(ProjectName.fromUserInput("half-shop"))
+                .withTests(java.util.Set.of("notifications")), work);
+
+        assertThat(project.resolve("modules/users/impl/src/main")).isDirectory();
+        assertThat(project.resolve("modules/users/impl/src/test")).doesNotExist();
+        assertThat(project.resolve("modules/notifications/impl/src/test")).isDirectory();
+    }
+
+    /** Some of the scans: the others' jobs and header lines go — and without Dependency-Check, its build script. */
+    @Test
+    void generatesOnlyTheScansChosen(@TempDir Path work) throws IOException {
+        Path project = generate(ProjectSpec.defaultsFor(ProjectName.fromUserInput("scan-shop"))
+                .withScans(java.util.EnumSet.of(Scan.CODEQL, Scan.ZAP)), work);
+
+        assertThat(Files.readString(project.resolve(".github/workflows/security.yml"), UTF_8))
+                .contains("  codeql:\n", "  zap-baseline:\n", "#   CodeQL ", "#   ZAP baseline ")
+                .doesNotContain("dependency-check", "Dependency-Check", "\n\n\n");
+        assertThat(project.resolve("build.gradle.kts")).doesNotExist();
     }
 
     /** Without compose: no compose.yaml, no docker-compose support, a README that says how to point at a database. */

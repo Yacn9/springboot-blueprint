@@ -3,6 +3,7 @@ package com.acme.blueprint.cli;
 import static com.acme.blueprint.cli.TestArchives.text;
 import static com.acme.blueprint.cli.TestArchives.zip;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.io.BufferedReader;
 import java.io.ByteArrayInputStream;
@@ -32,8 +33,11 @@ class VersionsAndToolsTest {
                     + "\ndistributionUrl=https\\://services.gradle.org/distributions/gradle-9.8.1-bin.zip\n")));
     private static final ProjectTemplate TEMPLATE = new ProjectTemplate(() -> new ByteArrayInputStream(ARCHIVE), "# {{name}}");
 
-    /** What the internet would answer: Spring Boot 4.2.0 and 5.0.0 are out, so is Gradle 9.9. */
+    /** What the internet would answer: Java 27, Spring Boot 4.2.0 and 5.0.0 are out, so is Gradle 9.9. */
     private static final Releases RELEASES = new Releases(url -> Optional.ofNullable(Map.of(
+            "https://api.adoptium.net/v3/info/available_releases",
+            "{ \"available_lts_releases\" : [ 8, 11, 17, 21, 25 ], \"available_releases\" : [ 8, 11, 17, 21, 24, 25, 26, 27 ],"
+                    + " \"most_recent_feature_release\" : 27, \"most_recent_lts\" : 25 }",
             "https://repo1.maven.org/maven2/org/springframework/boot/spring-boot/maven-metadata.xml",
             "<version>3.5.0</version><version>4.0.8</version><version>4.1.1</version><version>4.2.0-RC1</version>"
                     + "<version>4.2.0</version><version>5.0.0</version>",
@@ -47,17 +51,64 @@ class VersionsAndToolsTest {
 
     @Test
     void offersNewerReleasesOfTheSameMajorLineNewestFirst() {
-        assertThat(RELEASES.springBoot("4.1.1")).containsExactly("4.2.0", "4.1.1");
-        assertThat(RELEASES.gradle("9.8.1")).containsExactly("9.9", "9.8.1");
-        assertThat(new Releases(url -> Optional.empty()).springBoot("4.1.1")).containsExactly("4.1.1");
+        assertThat(RELEASES.springBoot("4.1.1")).hasValue(List.of("4.2.0", "4.1.1"));
+        assertThat(RELEASES.gradle("9.8.1")).hasValue(List.of("9.9", "9.8.1"));
         assertThat(Releases.compare("9.10", "9.9.1")).isPositive();
     }
 
     @Test
-    void pinsTheChosenVersionsInTheGeneratedProject() throws Exception {
-        String out = run(tools(Optional.of("21.0.2"), Optional.of("2.43.0"), true), "my-shop\nn\n21\n\n\n\n\n");
+    void offersTheLatestJavaAndEveryLtsTheTemplateBuildsOn() {
+        assertThat(RELEASES.java()).containsExactly(new Releases.Java(27, false), new Releases.Java(25, true), new Releases.Java(21, true));
+    }
 
-        assertThat(out).contains("? Java version (LTS) (25 / 21) [25]", "Spring Boot version (4.2.0 / 4.1.1)", "java    21.0.2");
+    @Test
+    void listsNothingWhenTheInternetDoesNotAnswerButTheKnownLtsReleasesForJava() {
+        Releases offline = new Releases(url -> Optional.empty());
+
+        assertThat(offline.springBoot("4.1.1")).isEmpty();
+        assertThat(offline.gradle("9.8.1")).isEmpty();
+        assertThat(offline.java()).containsExactly(new Releases.Java(25, true), new Releases.Java(21, true));
+    }
+
+    @Test
+    void acceptsATypedVersionOnlyOfTheTemplatesLineAndNoOlder() {
+        assertThat(Releases.sameLine("4.1.3", "4.1.1", "Spring Boot")).isEqualTo("4.1.3");
+        for (String typed : List.of("4.0.9", "5.0.0", "latest", "4")) {
+            assertThatThrownBy(() -> Releases.sameLine(typed, "4.1.1", "Spring Boot"))
+                    .isInstanceOf(IllegalArgumentException.class).hasMessage("Enter Spring Boot 4.1.1 or a newer 4.x release.");
+        }
+    }
+
+    @Test
+    void defaultsToTheInstalledJavaAndSaysSo() throws Exception {
+        String out = run(tools(Optional.of("26.0.1"), Optional.of("2.43.0"), true), "my-shop\ncustom\n");
+
+        assertThat(out).contains("? Java version (27 / 26 / 25 / 21) [26]");
+        assertThat(Files.readString(work.resolve("my-shop/" + ProjectVersions.CATALOG))).contains("java = \"26\"");
+    }
+
+    @Test
+    void defaultsToTheNewestLtsWithoutAUsableJava() throws Exception {
+        String out = run(tools(Optional.of("17.0.9"), Optional.of("2.43.0"), true), "my-shop\ncustom\n");
+
+        assertThat(out).contains("? Java version (27 / 25 / 21) [25]");
+    }
+    @Test
+    void asksForTheVersionsToBeTypedWhenTheirReleasesCannotBeListed() throws Exception {
+        Releases offline = new Releases(url -> Optional.empty());
+        String out = run(tools(Optional.of("25"), Optional.of("2.43.0"), true), offline, "my-shop\ncustom\n\n5.0.0\n4.1.2\n9.9\n\n");
+
+        assertThat(out).contains("? Spring Boot version (its releases could not be listed) [4.1.1]",
+                "Enter Spring Boot 4.1.1 or a newer 4.x release.", "Could not fetch the checksum of Gradle 9.9");
+        assertThat(Files.readString(work.resolve("my-shop/" + ProjectVersions.CATALOG))).contains("spring-boot = \"4.1.2\"");
+        assertThat(Files.readString(work.resolve("my-shop/" + ProjectVersions.WRAPPER))).contains("gradle-9.8.1-bin.zip");
+    }
+
+    @Test
+    void pinsTheChosenVersionsInTheGeneratedProject() throws Exception {
+        String out = run(tools(Optional.of("21.0.2"), Optional.of("2.43.0"), true), "my-shop\ncustom\n\n\n\n\n");
+
+        assertThat(out).contains("? Java version (27 / 25 / 21) [21]", "Spring Boot version (4.2.0 / 4.1.1)", "java    21.0.2");
         assertThat(Files.readString(work.resolve("my-shop/" + ProjectVersions.CATALOG)))
                 .contains("java = \"21\"", "spring-boot = \"4.2.0\"", "spring-modulith = \"2.1.1\"");
         assertThat(Files.readString(work.resolve("my-shop/" + ProjectVersions.WRAPPER)))
@@ -67,8 +118,10 @@ class VersionsAndToolsTest {
 
     @Test
     void installsMissingToolsOnlyWhenTheUserAgrees() throws Exception {
-        // Custom; Enter ×10: newest versions, PostgreSQL, no cache, no broker, samples and tests, compose, no deploy; no to the extras and git; then yes to Java, and yes to Gradle (git has no known installer here).
-        String out = run(tools(Optional.empty(), Optional.of("1.9.5"), false), "my-shop\nn\n" + "\n".repeat(10) + "n\n\nn\nn\n\nn\ny\ny\n");
+        // Custom; Enter ×10: default versions, PostgreSQL, no cache, no broker, both samples and their tests, compose, no deploy;
+        // no to the extras, no observability, no scans, no git; then yes to Java, and yes to Gradle (git has no known installer here).
+        String out = run(tools(Optional.empty(), Optional.of("1.9.5"), false),
+                "my-shop\ncustom\n" + "\n".repeat(10) + "n\n\nnone\nn\n\nn\ny\ny\n");
 
         assertThat(out).contains("java    not found", "git     1.9.5 is too old", "Install git yourself");
         assertThat(installed).containsExactly(
@@ -82,8 +135,10 @@ class VersionsAndToolsTest {
     void takesEveryDefaultWithOneAnswerAndInstallsNothing() throws Exception {
         String out = run(tools(Optional.empty(), Optional.of("2.43.0"), false), "my-shop\n\n");
 
-        assertThat(out).contains("? Use the default setup?", "Default setup: Java 25 · Spring Boot 4.2.0 · Gradle 9.9 · PostgreSQL",
-                "ci", "dependabot", "observability", "git", "java    not found").doesNotContain("? Database", "? Install");
+        assertThat(out).contains("? How do you want to set up the project? (default / custom) [default]",
+                "Default setup: Java 25 · Spring Boot 4.2.0 · Gradle 9.9 · PostgreSQL",
+                "sample modules users, notifications · tests of users, notifications",
+                "ci", "dependabot", "observability", "git", "java    not found").doesNotContain("? Database", "? Install", "scan ");
         assertThat(Files.readString(work.resolve("my-shop/" + ProjectVersions.CATALOG))).contains("spring-boot = \"4.2.0\"");
         assertThat(installed).isEmpty();
     }
@@ -157,8 +212,12 @@ class VersionsAndToolsTest {
     }
 
     private String run(SystemTools tools, String stdin) {
+        return run(tools, RELEASES, stdin);
+    }
+
+    private String run(SystemTools tools, Releases releases, String stdin) {
         StringWriter out = new StringWriter();
-        CommandLine cli = BlueprintCli.commandLine(TEMPLATE, new BufferedReader(new StringReader(stdin)), RELEASES, tools);
+        CommandLine cli = BlueprintCli.commandLine(TEMPLATE, new BufferedReader(new StringReader(stdin)), releases, tools);
         cli.setOut(new PrintWriter(out, true));
         cli.setErr(new PrintWriter(out, true));
         int exitCode = cli.execute("new", "--parent-dir", work.toString());
