@@ -1,6 +1,6 @@
 # {{name}}
 
-A **modular monolith** on Spring Boot 4.1, Hibernate 7 and Java 25 — one
+A **modular monolith** on Spring Boot {{spring-boot}}, Hibernate 7 and Java {{java}} — one
 deployable, many isolated business modules, with the module boundaries
 enforced by the build itself. Base package: `{{package}}`.
 
@@ -9,7 +9,7 @@ explains the rules the build enforces and why.
 
 ## Quick start
 
-Prerequisites: a JDK 17+ to launch Gradle (Gradle provisions JDK 25 itself)
+Prerequisites: a JDK 17+ to launch Gradle (Gradle provisions JDK {{java}} itself)
 and Docker (for the database and the integration tests).
 
 ```bash
@@ -33,6 +33,16 @@ build-logic/             convention plugins every project applies
 gradle/libs.versions.toml
 ```
 
+Try it:
+
+```bash
+curl -X POST localhost:8080/api/users -H 'Content-Type: application/json' -d '{
+  "nationalCode": "0012345679",
+  "profile": { "firstName": "Vesen", "lastName": "Naqibi", "mobile": "09121234567",
+               "email": "vesen@example.com", "tier": "GOLD", "branch": "Tehran Central" } }'
+curl "localhost:8080/api/notifications?userId=<id from the response>"   # the welcome message
+```
+
 `users` is the full reference slice — copy its shape. `notifications`
 shows both ways modules talk: it reacts to `UserRegistered` events and
 calls `UserDirectory` synchronously. Replace or delete both once you have
@@ -45,12 +55,12 @@ steps.
 
 ## Troubleshooting
 
-**Gradle cannot download JDK 25** ("Unable to download toolchain … foojay"):
+**Gradle cannot download JDK {{java}}** ("Unable to download toolchain … foojay"):
 the toolchain is fetched from GitHub release assets, which some networks
-block. Install any JDK 25 yourself and either put it in a standard location
+block. Install any JDK {{java}} yourself and either put it in a standard location
 or point Gradle at it in your *user-level* `~/.gradle/gradle.properties`
 (not the project's):
 
 ```properties
-org.gradle.java.installations.paths=C:/path/to/jdk-25
+org.gradle.java.installations.paths=C:/path/to/jdk-{{java}}
 ```

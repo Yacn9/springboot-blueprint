@@ -1,6 +1,6 @@
 -- The users module's schema is an Oracle user that cannot log in; the
 -- application user creates it (see oracle-init/01-privileges.sql).
-CREATE USER IF NOT EXISTS users NO AUTHENTICATION
+CREATE USER users NO AUTHENTICATION
     DEFAULT TABLESPACE users QUOTA UNLIMITED ON users;
 
 CREATE TABLE users.user_account

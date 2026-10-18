@@ -4,7 +4,9 @@ import java.io.BufferedReader;
 import java.io.PrintWriter;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.EnumSet;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.stream.Collectors;
 
@@ -46,9 +48,42 @@ final class NewCommand implements Callable<Integer> {
             description = "none, memory, redis or memcached. Asked for when left out.")
     private String cache;
 
+    @Option(names = "--broker", paramLabel = "<broker>",
+            description = "none, kafka or redpanda: where the modules' events are also published. Asked for when left out.")
+    private String broker;
+
     @Option(names = "--samples", negatable = true,
             description = "Keep the sample modules (users, notifications), or start without (--no-samples). Asked for when left out.")
     private Boolean samples;
+
+    @Option(names = "--deploy", paramLabel = "<deploy>",
+            description = "none, docker or kubernetes (Helm chart). Asked for when left out.")
+    private String deploy;
+
+    @Option(names = "--tests", negatable = true, description = "Keep the sample modules' tests (default), or not.")
+    private Boolean tests;
+
+    @Option(names = "--compose", negatable = true, description = "Docker Compose for local services (default), or not.")
+    private Boolean compose;
+
+    @Option(names = "--ci", negatable = true, description = "A GitHub Actions workflow, or not.")
+    private Boolean ci;
+
+    @Option(names = "--security", negatable = true, description = "JWT security (OAuth2 resource server), or not.")
+    private Boolean security;
+
+    @Option(names = "--observability", negatable = true, description = "Prometheus metrics and OpenTelemetry tracing, or not.")
+    private Boolean observability;
+
+    @Option(names = "--dependabot", negatable = true, description = "Dependabot configuration, or not.")
+    private Boolean dependabot;
+
+    @Option(names = {"-y", "--defaults"}, negatable = true,
+            description = "Take every default without asking (--no-defaults: ask about each). Other options still apply.")
+    private Boolean defaults;
+
+    @Option(names = "--scans", negatable = true, description = "OWASP scans in CI (ZAP, CodeQL, Dependency-Check), or not.")
+    private Boolean scans;
 
     @Option(names = "--git", negatable = true,
             description = "git init with a first commit, or not (--no-git). Asked for when left out.")
@@ -62,9 +97,11 @@ final class NewCommand implements Callable<Integer> {
     private final ProjectGenerator generator;
     private final Releases releases;
     private final SystemTools tools;
+    private final Style style;
 
     NewCommand(ProjectTemplate template, BufferedReader input, ProjectGenerator generator,
-            Releases releases, SystemTools tools) {
+            Releases releases, SystemTools tools, Style style) {
+        this.style = style;
         this.template = template;
         this.input = input;
         this.generator = generator;
@@ -75,19 +112,53 @@ final class NewCommand implements Callable<Integer> {
     @Override
     public Integer call() {
         PrintWriter out = spec.commandLine().getOut();
-        Prompter prompter = new Prompter(input, out);
+        out.print(style.banner());
+        Prompter prompter = new Prompter(input, out, style);
         ProjectName name = projectName != null ? nameFromArgument() : nameFromPrompt(prompter);
         ProjectSpec project = ProjectSpec.defaultsFor(name);
         Optional<ProjectVersions> templateVersions = ProjectVersions.of(template);
+        boolean useDefaults = false;
         if (templateVersions.isPresent()) {
+            // No answer (piped input) means the custom path, where every unanswered question keeps the template as it is.
+            useDefaults = defaults != null ? defaults
+                    : prompter.confirm("Use the default setup? (no: choose each setting)", true, false);
+            if (useDefaults) {
+                prompter = prompter.answeringDefaults();
+            }
             project = project.withVersions(chooseVersions(prompter, templateVersions.get()))
                     .withDatabase(database != null ? databaseFromOption() : Database.of(prompter.choose("Database", Database.ids())))
                     .withCache(cache != null ? cacheFromOption() : CacheProvider.of(prompter.choose("Cache", CacheProvider.ids())))
+                    .withBroker(broker != null ? brokerFromOption() : BrokerProvider.of(prompter.choose("Message broker", BrokerProvider.ids())))
                     .withSamples(samples != null ? samples
                             : prompter.confirm("Include the sample modules (users, notifications)?", true));
+            Set<Extra> extras = EnumSet.noneOf(Extra.class);
+            // The samples' tests are asked about only when there are samples.
+            if (project.samples() && answer(prompter, tests, Extra.TESTS)) {
+                extras.add(Extra.TESTS);
+            }
+            if (answer(prompter, compose, Extra.COMPOSE)) {
+                extras.add(Extra.COMPOSE);
+            }
+            project = project.withDeploy(deploy != null ? deploymentFromOption() : Deployment.of(prompter.choose("Deploy", Deployment.ids())));
+            for (Extra extra : List.of(Extra.CI, Extra.SECURITY, Extra.OBSERVABILITY, Extra.DEPENDABOT, Extra.SCANS)) {
+                Boolean option = switch (extra) {
+                    case CI -> ci;
+                    case SECURITY -> security;
+                    case OBSERVABILITY -> observability;
+                    case DEPENDABOT -> dependabot;
+                    default -> scans;
+                };
+                if (answer(prompter, option, extra)) {
+                    extras.add(extra);
+                }
+            }
+            project = project.withExtras(extras);
         }
         boolean initGit = git != null ? git : templateVersions.isPresent()
                 && prompter.confirm("Initialize a git repository with a first commit?", false);
+        if (useDefaults) {
+            out.println(style.dim("Default setup: " + describe(project, initGit)));
+        }
         checkTools(prompter, out, project.versions());
 
         Path parent = parentDirectory != null ? parentDirectory : Path.of("");
@@ -96,7 +167,7 @@ final class NewCommand implements Callable<Integer> {
         if (initGit) {
             tools.initGit(generated.directory()).ifPresentOrElse(
                     reason -> out.println("No git repository: " + reason + "."),
-                    () -> out.println("Initialized a git repository on main: \"" + SystemTools.INITIAL_COMMIT + "\"."));
+                    () -> out.println(style.ok("Initialized a git repository on main: \"" + SystemTools.INITIAL_COMMIT + "\".")));
         }
         printSummary(out, project, generated);
         return BlueprintCli.SUCCESS;
@@ -116,6 +187,47 @@ final class NewCommand implements Callable<Integer> {
                     "Unknown database '" + database + "': choose one of " + String.join(", ", Database.ids()) + ".");
         }
         return Database.of(database);
+    }
+
+    /** One line of what the default setup chose. */
+    private static String describe(ProjectSpec project, boolean git) {
+        List<String> parts = new java.util.ArrayList<>();
+        if (project.versions() != null) {
+            parts.add("Java " + project.versions().java());
+            parts.add("Spring Boot " + project.versions().springBoot());
+            parts.add("Gradle " + project.versions().gradle());
+        }
+        parts.add(project.database().displayName());
+        parts.add("cache " + project.cache().id());
+        parts.add("broker " + project.broker().id());
+        parts.add(project.samples() ? (project.has(Extra.TESTS) ? "sample modules with tests" : "sample modules") : "no sample modules");
+        parts.add("deploy " + project.deploy().id());
+        project.extras().stream().filter(extra -> extra != Extra.TESTS).map(Extra::id).sorted().forEach(parts::add);
+        if (git) {
+            parts.add("git");
+        }
+        return String.join(" · ", parts) + ".";
+    }
+
+    /** The option when given; otherwise asked — Enter takes the extra's default, no answer keeps what the template has. */
+    private static boolean answer(Prompter prompter, Boolean option, Extra extra) {
+        return option != null ? option : prompter.confirm(extra.question(), extra.byDefault(), extra.inTemplate());
+    }
+
+    private Deployment deploymentFromOption() {
+        if (!Deployment.ids().contains(deploy)) {
+            throw new ParameterException(spec.commandLine(),
+                    "Unknown deployment '" + deploy + "': choose one of " + String.join(", ", Deployment.ids()) + ".");
+        }
+        return Deployment.of(deploy);
+    }
+
+    private BrokerProvider brokerFromOption() {
+        if (!BrokerProvider.ids().contains(broker)) {
+            throw new ParameterException(spec.commandLine(),
+                    "Unknown broker '" + broker + "': choose one of " + String.join(", ", BrokerProvider.ids()) + ".");
+        }
+        return BrokerProvider.of(broker);
     }
 
     private CacheProvider cacheFromOption() {
@@ -149,30 +261,30 @@ final class NewCommand implements Callable<Integer> {
     private void checkTools(Prompter prompter, PrintWriter out, ProjectVersions versions) {
         String java = versions != null ? versions.java() : Releases.JAVA_LTS.get(0);
         out.println();
-        out.println("Checking tools:");
+        out.println(style.bold("Checking tools:"));
 
         Optional<String> javaVersion = tools.javaVersion();
         if (javaVersion.filter(version -> SystemTools.javaMajor(version) >= SystemTools.MIN_JAVA).isPresent()) {
-            out.printf("  java    %s%n", javaVersion.get());
+            out.println("  " + style.ok("java    " + javaVersion.get()));
         } else {
-            out.printf("  java    %s; ./gradlew needs Java %d+%n",
-                    javaVersion.map(version -> version + " is too old").orElse("not found"), SystemTools.MIN_JAVA);
+            out.println("  " + style.warn("java    %s; ./gradlew needs Java %d+".formatted(
+                    javaVersion.map(version -> version + " is too old").orElse("not found"), SystemTools.MIN_JAVA)));
             offer(prompter, out, "Java " + java + " (LTS)", tools.javaInstall(java), "https://adoptium.net");
         }
 
         Optional<String> gitVersion = tools.gitVersion();
         if (gitVersion.filter(version -> SystemTools.gitMajor(version) >= SystemTools.MIN_GIT).isPresent()) {
-            out.printf("  git     %s%n", gitVersion.get());
+            out.println("  " + style.ok("git     " + gitVersion.get()));
         } else {
-            out.printf("  git     %s; git %d+ is recommended%n",
-                    gitVersion.map(version -> version + " is too old").orElse("not found"), SystemTools.MIN_GIT);
+            out.println("  " + style.warn("git     %s; git %d+ is recommended".formatted(
+                    gitVersion.map(version -> version + " is too old").orElse("not found"), SystemTools.MIN_GIT)));
             offer(prompter, out, "git", tools.gitInstall(), "https://git-scm.com/downloads");
         }
 
         if (tools.hasGradle()) {
-            out.println("  gradle  installed (projects run their own ./gradlew)");
+            out.println("  " + style.ok("gradle  installed (projects run their own ./gradlew)"));
         } else if (versions != null) {
-            out.println("  gradle  not found (optional: projects run their own ./gradlew)");
+            out.println("  " + style.dim("gradle  not found (optional: projects run their own ./gradlew)"));
             offer(prompter, out, "Gradle " + versions.gradle(), tools.gradleInstall(versions.gradle()),
                     "https://gradle.org/install");
         }
@@ -197,16 +309,17 @@ final class NewCommand implements Callable<Integer> {
 
     private void printSummary(PrintWriter out, ProjectSpec project, GeneratedProject generated) {
         out.println();
-        out.printf("Created %s in %s (%d files, base package %s, %s, cache: %s).%n", project.artifact(),
-                generated.directory(), generated.fileCount(), project.basePackage(), project.database().displayName(),
-                project.cache().id());
+        out.println(style.ok(style.bold("Created " + project.artifact()) + " in %s (%d files, base package %s, %s, cache: %s)."
+                .formatted(generated.directory(), generated.fileCount(), project.basePackage(),
+                        project.database().displayName(), project.cache().id())
+                        + (project.broker() != BrokerProvider.NONE ? " Events also go to " + project.broker().id() + "." : "")));
         out.println();
-        out.println("Next steps:");
-        out.println("  cd " + whereToEnter(project, generated));
-        out.println("  ./gradlew build           # all tests; needs Docker for the database");
-        out.println("  ./gradlew :app:bootRun    # starts the database and the app on :8080");
+        out.println(style.bold("Next steps:"));
+        out.println("  " + style.cyan("cd " + whereToEnter(project, generated)));
+        out.println("  " + style.cyan("./gradlew build") + "           " + style.dim("# all tests; needs Docker for the database"));
+        out.println("  " + style.cyan("./gradlew :app:bootRun") + "    " + style.dim("# starts the database and the app on :8080"));
         out.println();
-        out.println("Read docs/architecture.md before adding code.");
+        out.println(style.dim("Read docs/architecture.md before adding code."));
         out.flush();
     }
 

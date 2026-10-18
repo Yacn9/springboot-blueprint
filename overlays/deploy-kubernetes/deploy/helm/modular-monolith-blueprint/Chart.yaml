@@ -1,0 +1,6 @@
+apiVersion: v2
+name: modular-monolith-blueprint
+description: The modular-monolith-blueprint application
+type: application
+version: 0.1.0
+appVersion: "0.1.0"

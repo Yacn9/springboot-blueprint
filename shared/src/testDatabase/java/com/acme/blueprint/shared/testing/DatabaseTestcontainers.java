@@ -1,8 +1,8 @@
 package com.acme.blueprint.shared.testing;
 
 import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.boot.testcontainers.context.ImportTestcontainers;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
-import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 import org.testcontainers.utility.DockerImageName;
@@ -15,17 +15,16 @@ import org.testcontainers.utility.DockerImageName;
  * that can name a database vendor.
  */
 @TestConfiguration(proxyBeanMethods = false)
-@Import(CacheTestcontainers.class)
+@ImportTestcontainers
+@Import({CacheTestcontainers.class, BrokerTestcontainers.class})
 public class DatabaseTestcontainers {
 
     /** Set by the Gradle test task from {@code database-image} in libs.versions.toml. */
     private static final String IMAGE_PROPERTY = "blueprint.database-image";
 
-    @Bean
+    /** One container for every test context in this JVM: contexts are cached, and each would start its own. */
     @ServiceConnection
-    PostgreSQLContainer databaseContainer() {
-        return new PostgreSQLContainer(imageName());
-    }
+    static final PostgreSQLContainer DATABASE = new PostgreSQLContainer(imageName());
 
     /**
      * Declared a substitute for the vendor's official image, so a registry

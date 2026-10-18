@@ -9,6 +9,7 @@ import java.nio.charset.CharacterCodingException;
 import java.nio.charset.CodingErrorAction;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -66,7 +67,9 @@ final class ProjectGenerator {
         for (ZipEntry entry = zip.getNextEntry(); entry != null; entry = zip.getNextEntry()) {
             String source = entry.getName();
             if (entry.isDirectory() || source.equals(TEMPLATE_README) || source.startsWith(Database.OVERLAYS)
-                    || !spec.samples() && source.startsWith(SampleModules.MODULES)) {
+                    || !spec.samples() && source.startsWith(SampleModules.MODULES)
+                    || !spec.has(Extra.COMPOSE) && source.equals(CacheProvider.COMPOSE)
+                    || !spec.has(Extra.TESTS) && source.startsWith(SampleModules.MODULES) && source.contains("/src/test/")) {
                 continue;
             }
             byte[] content = overlay.containsKey(source) ? overlay.remove(source) : zip.readAllBytes();
@@ -86,9 +89,13 @@ final class ProjectGenerator {
     /** The chosen database's and cache's overlay files, keyed by the template path they replace or add. */
     private static Map<String, byte[]> overlay(ProjectTemplate template, ProjectSpec spec) throws IOException {
         Map<String, byte[]> files = new LinkedHashMap<>();
-        List<String> overlays = spec.samples()
-                ? List.of(spec.database().overlay(), spec.cache().overlay())
-                : List.of(spec.database().overlay(), spec.cache().overlay(), SampleModules.OVERLAY);
+        List<String> overlays = new ArrayList<>(List.of(spec.database().overlay(), spec.cache().overlay()));
+        if (!spec.samples()) {
+            overlays.add(SampleModules.OVERLAY);
+        }
+        overlays.addAll(spec.broker().overlays());
+        overlays.addAll(spec.deploy().overlays());
+        spec.extras().stream().filter(extra -> !extra.inTemplate()).map(Extra::overlay).forEach(overlays::add);
         for (String overlay : overlays) {
             try (InputStream archive = template.archive().get(); ZipInputStream zip = new ZipInputStream(archive)) {
                 for (ZipEntry entry = zip.getNextEntry(); entry != null; entry = zip.getNextEntry()) {
@@ -117,7 +124,9 @@ final class ProjectGenerator {
                 .map(text -> spec.versions() == null ? text : spec.versions().pin(source, text))
                 .map(text -> spec.database().pin(source, text))
                 .map(text -> spec.cache().pin(source, text))
+                .map(text -> spec.broker().pin(source, text))
                 .map(text -> spec.samples() ? text : SampleModules.remove(source, text))
+                .map(text -> Extras.pin(spec, source, text))
                 .map(text -> rules.content(text, source.endsWith(".md")))
                 .map(text -> text.getBytes(UTF_8))
                 .orElse(content);
@@ -144,7 +153,9 @@ final class ProjectGenerator {
         String readme = readmeTemplate
                 .replace(README_NAME_PLACEHOLDER, spec.artifact())
                 .replace(README_PACKAGE_PLACEHOLDER, spec.basePackage())
-                .replace(README_DATABASE_PLACEHOLDER, spec.database().displayName());
-        Files.writeString(directory.resolve(TEMPLATE_README), spec.samples() ? readme : SampleModules.readme(readme), UTF_8);
+                .replace(README_DATABASE_PLACEHOLDER, spec.database().displayName())
+                .replace("{{java}}", spec.versions() != null ? spec.versions().java() : Releases.JAVA_LTS.get(0))
+                .replace("{{spring-boot}}", spec.versions() != null ? spec.versions().springBoot().replaceAll("\\.\\d+$", "") : "4.1");
+        Files.writeString(directory.resolve(TEMPLATE_README), Extras.readme(spec, spec.samples() ? readme : SampleModules.readme(readme)), UTF_8);
     }
 }

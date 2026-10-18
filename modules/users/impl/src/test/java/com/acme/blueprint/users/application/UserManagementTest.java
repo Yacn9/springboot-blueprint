@@ -48,7 +48,7 @@ class UserManagementTest {
 
         assertThat(user.status()).isEqualTo(UserStatus.PENDING);
         assertThat(published).singleElement().isEqualTo(
-                new UserRegistered(user.id(), "Ali Rezaei", "ali@example.com", NOW));
+                new UserRegistered(user.id(), "Vesen Naqibi", "vesen@example.com", NOW));
     }
 
     @Test
@@ -95,7 +95,7 @@ class UserManagementTest {
     }
 
     private static UserProfile profile() {
-        return new UserProfile("Ali", "Rezaei", "09121234567", "ali@example.com", UserTier.GOLD, "Tehran Central", null);
+        return new UserProfile("Vesen", "Naqibi", "09121234567", "vesen@example.com", UserTier.GOLD, "Tehran Central", null);
     }
 
     /** Keeps {@link UserRepository}'s contract: {@code add} refuses a taken national code. */

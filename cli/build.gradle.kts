@@ -35,9 +35,10 @@ val templateZip: Provider<RegularFile> = layout.buildDirectory.file("template/te
 
 // Never in a template, whatever git says: version control, tool state, build output, and everything
 // that belongs to the blueprint's own distribution — this CLI, its installer and its release workflow.
-val excludedDirectories = setOf(".git", ".github", ".gradle", ".kotlin", ".idea", ".vscode", ".claude", ".settings", "build", "out", "bin")
+val excludedDirectories = setOf(".git", ".gradle", ".kotlin", ".idea", ".vscode", ".claude", ".settings", "build", "out", "bin")
 val excludedFileSuffixes = listOf(".iml", ".classpath", ".project")
-val distributionOnly = setOf("cli", "install.sh", "jbang-catalog.json")
+// Top-level only: an overlay's own .github (the generated project's CI) is part of the template.
+val distributionOnly = setOf("cli", "install.sh", "jbang-catalog.json", ".github")
 
 /** Whether a file or directory below the repository root is, by its place alone, part of the template. */
 fun isInTemplate(path: File): Boolean {

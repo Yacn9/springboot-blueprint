@@ -1,0 +1,7 @@
+# Build output and tool state stay out of the image's build context.
+**/build
+**/.gradle
+.git
+.idea
+.vscode
+*.iml

@@ -79,11 +79,11 @@ class UserTest {
     }
 
     private static User newUser() {
-        return User.register(NationalCode.of("0012345679"), profile("Ali"), REGISTERED_AT);
+        return User.register(NationalCode.of("0012345679"), profile("Vesen"), REGISTERED_AT);
     }
 
     private static UserProfile profile(String firstName) {
         return new UserProfile(
-                firstName, "Rezaei", "09121234567", "ali@example.com", UserTier.GOLD, "Tehran Central", null);
+                firstName, "Naqibi", "09121234567", "vesen@example.com", UserTier.GOLD, "Tehran Central", null);
     }
 }

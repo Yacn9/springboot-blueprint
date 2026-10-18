@@ -21,7 +21,7 @@ final class SampleModules {
             modules/users/impl   :users-impl     domain · application · infrastructure · web
             modules/notifications/…  :notifications-api / :notifications-impl
             """;
-    private static final String README_SLICE_START = "`users` is the full reference slice";
+    private static final String README_SLICE_START = "Try it:";
     private static final String README_SLICE_END = "lists the\nsteps.\n";
 
     private SampleModules() {
@@ -32,7 +32,9 @@ final class SampleModules {
         return switch (path) {
             case SETTINGS -> text.replace(MODULE_INCLUDES,
                     "// Add a module with businessModule(\"<name>\") — see \"Adding a New Module\" in docs/architecture.md.\n");
-            case APP_BUILD -> text.replace(MODULE_DEPENDENCIES, "    // runtimeOnly(project(\":<name>-impl\")) for each module.\n");
+            // Modules bring :shared (the database, cache and broker libraries); without any, the application needs it itself.
+            case APP_BUILD -> text.replace(MODULE_DEPENDENCIES,
+                    "    // runtimeOnly(project(\":<name>-impl\")) for each module.\n    runtimeOnly(project(\":shared\"))\n");
             default -> text;
         };
     }

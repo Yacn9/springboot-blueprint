@@ -1,0 +1,34 @@
+# Install with, for example:
+#   helm install modular-monolith-blueprint deploy/helm/modular-monolith-blueprint \
+#     --set image.repository=<registry>/modular-monolith-blueprint \
+#     --set datasource.url=<jdbc url> --set datasource.password=<password>
+
+image:
+  repository: modular-monolith-blueprint
+  tag: latest
+  pullPolicy: IfNotPresent
+
+replicaCount: 2
+
+service:
+  type: ClusterIP
+  port: 80
+
+# The database runs outside the cluster, as in production.
+datasource:
+  url: jdbc:postgresql://database:5432/blueprint
+  username: blueprint
+  password: ""
+  # The name of an existing Secret with `username` and `password` keys; when set,
+  # the chart creates none and ignores the two values above.
+  existingSecret: ""
+
+# Further environment variables, for example SPRING_DATA_REDIS_HOST or JWT_JWK_SET_URI.
+env: {}
+
+resources:
+  requests:
+    cpu: 250m
+    memory: 512Mi
+  limits:
+    memory: 768Mi

@@ -44,13 +44,18 @@ public final class BlueprintCli implements Runnable {
 
     /** The command line with its subcommands wired to the given template and input. */
     static CommandLine commandLine(ProjectTemplate template, BufferedReader promptInput) {
-        return commandLine(template, promptInput, Releases.online(), SystemTools.local());
+        return commandLine(template, promptInput, Releases.online(), SystemTools.local(), Style.PLAIN);
     }
 
     /** As above, with where newer releases come from and the machine's tools made explicit — for tests. */
     static CommandLine commandLine(ProjectTemplate template, BufferedReader promptInput, Releases releases, SystemTools tools) {
+        return commandLine(template, promptInput, releases, tools, Style.PLAIN);
+    }
+
+    static CommandLine commandLine(ProjectTemplate template, BufferedReader promptInput, Releases releases, SystemTools tools,
+            Style style) {
         CommandLine commandLine = new CommandLine(new BlueprintCli());
-        commandLine.addSubcommand(new NewCommand(template, promptInput, new ProjectGenerator(), releases, tools));
+        commandLine.addSubcommand(new NewCommand(template, promptInput, new ProjectGenerator(), releases, tools, style));
         // Set after the subcommands are added: a setting reaches only the commands that exist when it is made.
         commandLine.setParameterExceptionHandler((exception, arguments) -> {
             CommandLine failed = exception.getCommandLine();
@@ -68,7 +73,7 @@ public final class BlueprintCli implements Runnable {
     public static void main(String[] args) {
         BufferedReader stdin = new BufferedReader(new InputStreamReader(System.in, Charset.defaultCharset()));
         ProjectTemplate template = new ProjectTemplate(BlueprintCli::bundledArchive, bundledReadme());
-        System.exit(commandLine(template, stdin).execute(args));
+        System.exit(commandLine(template, stdin, Releases.online(), SystemTools.local(), Style.forTerminal()).execute(args));
     }
 
     private static InputStream bundledArchive() {

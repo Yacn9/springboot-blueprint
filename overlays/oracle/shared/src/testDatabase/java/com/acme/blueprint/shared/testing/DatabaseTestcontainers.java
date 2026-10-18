@@ -1,8 +1,8 @@
 package com.acme.blueprint.shared.testing;
 
 import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.boot.testcontainers.context.ImportTestcontainers;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
-import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.testcontainers.oracle.OracleContainer;
 import org.testcontainers.utility.DockerImageName;
@@ -19,21 +19,20 @@ import org.testcontainers.utility.MountableFile;
  * module users.
  */
 @TestConfiguration(proxyBeanMethods = false)
-@Import(CacheTestcontainers.class)
+@ImportTestcontainers
+@Import({CacheTestcontainers.class, BrokerTestcontainers.class})
 public class DatabaseTestcontainers {
 
     private static final String IMAGE_PROPERTY = "blueprint.database-image";
     private static final String PRIVILEGES = "oracle-init/01-privileges.sql";
 
-    @Bean
+    /** One container for every test context in this JVM: contexts are cached, and each would start its own. */
     @ServiceConnection
-    OracleContainer databaseContainer() {
-        return new OracleContainer(imageName())
-                .withUsername("blueprint")
-                .withPassword("blueprint")
-                .withCopyFileToContainer(MountableFile.forClasspathResource(PRIVILEGES),
+    static final OracleContainer DATABASE = new OracleContainer(imageName())
+            .withUsername("blueprint")
+            .withPassword("blueprint")
+            .withCopyFileToContainer(MountableFile.forClasspathResource(PRIVILEGES),
                         "/container-entrypoint-initdb.d/01-privileges.sql");
-    }
 
     private static DockerImageName imageName() {
         String image = System.getProperty(IMAGE_PROPERTY);
