@@ -37,8 +37,12 @@ dependencies {
     // Runtime platform every module relies on: the transactional event
     // publication registry (its tables are migrated from this project),
     // Flyway and the database driver. Their settings live in
-    // src/main/resources/config/blueprint-platform.yml.
+    // src/main/resources/config/blueprint-platform.yml. The registry stores
+    // publications through JPA, so Spring Boot's JPA starter is here too: the
+    // EntityManager must exist even in a project without modules, which
+    // otherwise each bring it.
     runtimeOnly("org.springframework.modulith:spring-modulith-starter-jpa")
+    runtimeOnly("org.springframework.boot:spring-boot-starter-data-jpa")
     runtimeOnly("org.springframework.boot:spring-boot-starter-flyway")
     runtimeOnly(libs.database.flyway)
     runtimeOnly(libs.database.jdbc.driver)
