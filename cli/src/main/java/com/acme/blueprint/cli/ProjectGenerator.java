@@ -67,9 +67,8 @@ final class ProjectGenerator {
         for (ZipEntry entry = zip.getNextEntry(); entry != null; entry = zip.getNextEntry()) {
             String source = entry.getName();
             if (entry.isDirectory() || source.equals(TEMPLATE_README) || source.startsWith(Database.OVERLAYS)
-                    || !spec.samples() && source.startsWith(SampleModules.MODULES)
-                    || !spec.has(Extra.COMPOSE) && source.equals(CacheProvider.COMPOSE)
-                    || !spec.has(Extra.TESTS) && source.startsWith(SampleModules.MODULES) && source.contains("/src/test/")) {
+                    || !SampleModules.keeps(spec, source)
+                    || !spec.has(Extra.COMPOSE) && source.equals(CacheProvider.COMPOSE)) {
                 continue;
             }
             byte[] content = overlay.containsKey(source) ? overlay.remove(source) : zip.readAllBytes();
@@ -77,7 +76,7 @@ final class ProjectGenerator {
             files++;
         }
         for (Map.Entry<String, byte[]> added : overlay.entrySet()) {
-            if (!spec.samples() && added.getKey().startsWith(SampleModules.MODULES)) {
+            if (!SampleModules.keeps(spec, added.getKey())) {
                 continue;
             }
             write(added.getKey(), added.getValue(), rules, spec, directory);
@@ -86,21 +85,27 @@ final class ProjectGenerator {
         return files;
     }
 
-    /** The chosen database's and cache's overlay files, keyed by the template path they replace or add. */
+    /** The chosen options' overlay files, keyed by the template path they replace or add. */
     private static Map<String, byte[]> overlay(ProjectTemplate template, ProjectSpec spec) throws IOException {
         Map<String, byte[]> files = new LinkedHashMap<>();
         List<String> overlays = new ArrayList<>(List.of(spec.database().overlay(), spec.cache().overlay()));
-        if (!spec.samples()) {
-            overlays.add(SampleModules.OVERLAY);
-        }
+        SampleModules.overlay(spec).ifPresent(overlays::add);
         overlays.addAll(spec.broker().overlays());
         overlays.addAll(spec.deploy().overlays());
         spec.extras().stream().filter(extra -> !extra.inTemplate()).map(Extra::overlay).forEach(overlays::add);
+        if (!spec.scans().isEmpty()) {
+            overlays.add(Scan.OVERLAY);
+        }
         for (String overlay : overlays) {
             try (InputStream archive = template.archive().get(); ZipInputStream zip = new ZipInputStream(archive)) {
                 for (ZipEntry entry = zip.getNextEntry(); entry != null; entry = zip.getNextEntry()) {
                     if (!entry.isDirectory() && entry.getName().startsWith(overlay)) {
-                        files.put(entry.getName().substring(overlay.length()), zip.readAllBytes());
+                        String path = entry.getName().substring(overlay.length());
+                        if (overlay.equals(Scan.OVERLAY) && path.equals(Scan.BUILD_SCRIPT)
+                                && !spec.scans().contains(Scan.DEPENDENCY_CHECK)) {
+                            continue;
+                        }
+                        files.put(path, zip.readAllBytes());
                     }
                 }
             }
@@ -125,8 +130,9 @@ final class ProjectGenerator {
                 .map(text -> spec.database().pin(source, text))
                 .map(text -> spec.cache().pin(source, text))
                 .map(text -> spec.broker().pin(source, text))
-                .map(text -> spec.samples() ? text : SampleModules.remove(source, text))
+                .map(text -> SampleModules.remove(spec, source, text))
                 .map(text -> Extras.pin(spec, source, text))
+                .map(text -> Scan.pin(spec.scans(), source, text))
                 .map(text -> rules.content(text, source.endsWith(".md")))
                 .map(text -> text.getBytes(UTF_8))
                 .orElse(content);
@@ -156,6 +162,6 @@ final class ProjectGenerator {
                 .replace(README_DATABASE_PLACEHOLDER, spec.database().displayName())
                 .replace("{{java}}", spec.versions() != null ? spec.versions().java() : Releases.JAVA_LTS.get(0))
                 .replace("{{spring-boot}}", spec.versions() != null ? spec.versions().springBoot().replaceAll("\\.\\d+$", "") : "4.1");
-        Files.writeString(directory.resolve(TEMPLATE_README), Extras.readme(spec, spec.samples() ? readme : SampleModules.readme(readme)), UTF_8);
+        Files.writeString(directory.resolve(TEMPLATE_README), Extras.readme(spec, SampleModules.readme(spec, readme)), UTF_8);
     }
 }

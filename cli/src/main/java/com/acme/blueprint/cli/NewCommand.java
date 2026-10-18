@@ -3,11 +3,15 @@ package com.acme.blueprint.cli;
 import java.io.BufferedReader;
 import java.io.PrintWriter;
 import java.nio.file.Path;
-import java.util.List;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Comparator;
 import java.util.EnumSet;
+import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.Callable;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import picocli.CommandLine.Command;
@@ -28,8 +32,15 @@ import picocli.CommandLine.Spec;
                 "A project name is lower-case letters, digits and hyphens, starting with a letter, up to 40",
                 "characters. Spaces and underscores become hyphens. Without a name, it is asked for.",
                 "",
-                "Exit codes: 0 project created, 1 could not create it, 2 bad command line."})
+                "Exit codes: 0 project created, 1 could not create it, 2 bad command line,",
+                "130 cancelled (Ctrl-C at a question)."})
 final class NewCommand implements Callable<Integer> {
+
+    private static final String SETUP_DEFAULT = "default";
+    private static final String SETUP_CUSTOM = "custom";
+    private static final String BOTH = "both";
+    private static final String NONE = "none";
+    private static final String PROMETHEUS = "prometheus";
 
     @Parameters(index = "0", arity = "0..1", paramLabel = "<project-name>",
             description = "Name of the project, for example my-shop. Asked for when left out.")
@@ -49,18 +60,22 @@ final class NewCommand implements Callable<Integer> {
     private String cache;
 
     @Option(names = "--broker", paramLabel = "<broker>",
-            description = "none, kafka or redpanda: where the modules' events are also published. Asked for when left out.")
+            description = "none, kafka, redpanda or rabbitmq: where the modules' events are also published. Asked for when left out.")
     private String broker;
 
     @Option(names = "--samples", negatable = true,
-            description = "Keep the sample modules (users, notifications), or start without (--no-samples). Asked for when left out.")
+            description = "Keep both sample modules (users, notifications), or start without (--no-samples). Asked for when left out.")
     private Boolean samples;
+
+    @Option(names = "--modules", paramLabel = "<modules>",
+            description = "Sample modules to keep: both, users or none. Asked for when left out.")
+    private String modules;
 
     @Option(names = "--deploy", paramLabel = "<deploy>",
             description = "none, docker or kubernetes (Helm chart). Asked for when left out.")
     private String deploy;
 
-    @Option(names = "--tests", negatable = true, description = "Keep the sample modules' tests (default), or not.")
+    @Option(names = "--tests", negatable = true, description = "Keep the tests of every sample module kept (default), or none.")
     private Boolean tests;
 
     @Option(names = "--compose", negatable = true, description = "Docker Compose for local services (default), or not.")
@@ -72,7 +87,7 @@ final class NewCommand implements Callable<Integer> {
     @Option(names = "--security", negatable = true, description = "JWT security (OAuth2 resource server), or not.")
     private Boolean security;
 
-    @Option(names = "--observability", negatable = true, description = "Prometheus metrics and OpenTelemetry tracing, or not.")
+    @Option(names = "--observability", negatable = true, description = "Prometheus metrics and OpenTelemetry tracing, or none.")
     private Boolean observability;
 
     @Option(names = "--dependabot", negatable = true, description = "Dependabot configuration, or not.")
@@ -82,7 +97,7 @@ final class NewCommand implements Callable<Integer> {
             description = "Take every default without asking (--no-defaults: ask about each). Other options still apply.")
     private Boolean defaults;
 
-    @Option(names = "--scans", negatable = true, description = "OWASP scans in CI (ZAP, CodeQL, Dependency-Check), or not.")
+    @Option(names = "--scans", negatable = true, description = "All three OWASP scans in CI (CodeQL, Dependency-Check, ZAP), or none.")
     private Boolean scans;
 
     @Option(names = "--git", negatable = true,
@@ -94,16 +109,19 @@ final class NewCommand implements Callable<Integer> {
 
     private final ProjectTemplate template;
     private final BufferedReader input;
+    /** The interactive terminal, for menus; null where there is none. */
+    private final Keyboard terminal;
     private final ProjectGenerator generator;
     private final Releases releases;
     private final SystemTools tools;
     private final Style style;
 
-    NewCommand(ProjectTemplate template, BufferedReader input, ProjectGenerator generator,
+    NewCommand(ProjectTemplate template, BufferedReader input, Keyboard terminal, ProjectGenerator generator,
             Releases releases, SystemTools tools, Style style) {
         this.style = style;
         this.template = template;
         this.input = input;
+        this.terminal = terminal;
         this.generator = generator;
         this.releases = releases;
         this.tools = tools;
@@ -113,7 +131,7 @@ final class NewCommand implements Callable<Integer> {
     public Integer call() {
         PrintWriter out = spec.commandLine().getOut();
         out.print(style.banner());
-        Prompter prompter = new Prompter(input, out, style);
+        Prompter prompter = new Prompter(terminal != null ? terminal : Keyboard.lines(input, out), out, style);
         ProjectName name = projectName != null ? nameFromArgument() : nameFromPrompt(prompter);
         ProjectSpec project = ProjectSpec.defaultsFor(name);
         Optional<ProjectVersions> templateVersions = ProjectVersions.of(template);
@@ -121,38 +139,41 @@ final class NewCommand implements Callable<Integer> {
         if (templateVersions.isPresent()) {
             // No answer (piped input) means the custom path, where every unanswered question keeps the template as it is.
             useDefaults = defaults != null ? defaults
-                    : prompter.confirm("Use the default setup? (no: choose each setting)", true, false);
+                    : prompter.pick("How do you want to set up the project?", List.of(
+                            Choice.of(SETUP_DEFAULT, "Default", "recommended settings, no more questions"),
+                            Choice.of(SETUP_CUSTOM, "Custom", "choose each setting")), SETUP_DEFAULT)
+                            .orElse(SETUP_CUSTOM).equals(SETUP_DEFAULT);
             if (useDefaults) {
                 prompter = prompter.answeringDefaults();
             }
             project = project.withVersions(chooseVersions(prompter, templateVersions.get()))
-                    .withDatabase(database != null ? databaseFromOption() : Database.of(prompter.choose("Database", Database.ids())))
-                    .withCache(cache != null ? cacheFromOption() : CacheProvider.of(prompter.choose("Cache", CacheProvider.ids())))
-                    .withBroker(broker != null ? brokerFromOption() : BrokerProvider.of(prompter.choose("Message broker", BrokerProvider.ids())))
-                    .withSamples(samples != null ? samples
-                            : prompter.confirm("Include the sample modules (users, notifications)?", true));
+                    .withDatabase(database != null ? databaseFromOption()
+                            : Database.of(prompter.select("Database", choices(Database.values(), Database::choice), Database.POSTGRESQL.choice().id())))
+                    .withCache(cache != null ? cacheFromOption()
+                            : CacheProvider.of(prompter.select("Cache", choices(CacheProvider.values(), CacheProvider::choice), CacheProvider.NONE.id())))
+                    .withBroker(broker != null ? brokerFromOption()
+                            : BrokerProvider.of(prompter.select("Message broker", choices(BrokerProvider.values(), BrokerProvider::choice), BrokerProvider.NONE.id())))
+                    .withModules(chooseModules(prompter));
+            project = project.withTests(chooseTests(prompter, project.modules()));
             Set<Extra> extras = EnumSet.noneOf(Extra.class);
-            // The samples' tests are asked about only when there are samples.
-            if (project.samples() && answer(prompter, tests, Extra.TESTS)) {
-                extras.add(Extra.TESTS);
-            }
             if (answer(prompter, compose, Extra.COMPOSE)) {
                 extras.add(Extra.COMPOSE);
             }
-            project = project.withDeploy(deploy != null ? deploymentFromOption() : Deployment.of(prompter.choose("Deploy", Deployment.ids())));
-            for (Extra extra : List.of(Extra.CI, Extra.SECURITY, Extra.OBSERVABILITY, Extra.DEPENDABOT, Extra.SCANS)) {
-                Boolean option = switch (extra) {
-                    case CI -> ci;
-                    case SECURITY -> security;
-                    case OBSERVABILITY -> observability;
-                    case DEPENDABOT -> dependabot;
-                    default -> scans;
-                };
-                if (answer(prompter, option, extra)) {
-                    extras.add(extra);
-                }
+            project = project.withDeploy(deploy != null ? deploymentFromOption()
+                    : Deployment.of(prompter.select("Deploy", choices(Deployment.values(), Deployment::choice), Deployment.NONE.id())));
+            if (answer(prompter, ci, Extra.CI)) {
+                extras.add(Extra.CI);
             }
-            project = project.withExtras(extras);
+            if (answer(prompter, security, Extra.SECURITY)) {
+                extras.add(Extra.SECURITY);
+            }
+            if (chooseObservability(prompter)) {
+                extras.add(Extra.OBSERVABILITY);
+            }
+            if (answer(prompter, dependabot, Extra.DEPENDABOT)) {
+                extras.add(Extra.DEPENDABOT);
+            }
+            project = project.withExtras(extras).withScans(chooseScans(prompter));
         }
         boolean initGit = git != null ? git : templateVersions.isPresent()
                 && prompter.confirm("Initialize a git repository with a first commit?", false);
@@ -191,7 +212,7 @@ final class NewCommand implements Callable<Integer> {
 
     /** One line of what the default setup chose. */
     private static String describe(ProjectSpec project, boolean git) {
-        List<String> parts = new java.util.ArrayList<>();
+        List<String> parts = new ArrayList<>();
         if (project.versions() != null) {
             parts.add("Java " + project.versions().java());
             parts.add("Spring Boot " + project.versions().springBoot());
@@ -200,9 +221,13 @@ final class NewCommand implements Callable<Integer> {
         parts.add(project.database().displayName());
         parts.add("cache " + project.cache().id());
         parts.add("broker " + project.broker().id());
-        parts.add(project.samples() ? (project.has(Extra.TESTS) ? "sample modules with tests" : "sample modules") : "no sample modules");
+        parts.add(project.samples() ? "sample modules " + String.join(", ", inOrder(project.modules())) : "no sample modules");
+        if (project.samples()) {
+            parts.add(project.testedModules().isEmpty() ? "no tests" : "tests of " + String.join(", ", inOrder(project.testedModules())));
+        }
         parts.add("deploy " + project.deploy().id());
-        project.extras().stream().filter(extra -> extra != Extra.TESTS).map(Extra::id).sorted().forEach(parts::add);
+        project.extras().stream().map(Extra::id).sorted().forEach(parts::add);
+        project.scans().stream().sorted().map(scan -> "scan " + scan.id()).forEach(parts::add);
         if (git) {
             parts.add("git");
         }
@@ -245,16 +270,184 @@ final class NewCommand implements Callable<Integer> {
                         "No project name given. Pass one as an argument, for example: blueprint new my-shop"));
     }
 
-    /** Java LTS, Spring Boot and Gradle; Enter takes the newest. Spring Boot's BOM brings Hibernate along. */
+    /**
+     * Java, Spring Boot and Gradle, each from the releases found online. Java's
+     * default is the one installed; Spring Boot and Gradle are typed when their
+     * releases cannot be listed. Spring Boot's BOM brings Hibernate along.
+     */
     private ProjectVersions chooseVersions(Prompter prompter, ProjectVersions template) {
-        String java = prompter.choose("Java version (LTS)", Releases.JAVA_LTS);
-        String springBoot = prompter.choose("Spring Boot version", releases.springBoot(template.springBoot()));
-        String gradle = prompter.choose("Gradle version", releases.gradle(template.gradle()));
+        String java = chooseJava(prompter);
+        String springBoot = releases.springBoot(template.springBoot())
+                .map(found -> prompter.select("Spring Boot version", versionChoices(found, template.springBoot()), found.get(0)))
+                .orElseGet(() -> prompter.type("Spring Boot version (its releases could not be listed)", template.springBoot(),
+                        typed -> Releases.sameLine(typed, template.springBoot(), "Spring Boot")));
+        String gradle = releases.gradle(template.gradle())
+                .map(found -> prompter.select("Gradle version", versionChoices(found, template.gradle()), found.get(0)))
+                .orElseGet(() -> prompter.type("Gradle version (its releases could not be listed)", template.gradle(),
+                        typed -> checksummed(Releases.sameLine(typed, template.gradle(), "Gradle"), template)));
         String gradleSha256 = gradle.equals(template.gradle())
                 ? template.gradleSha256()
                 : releases.gradleSha256(gradle).orElseThrow(() -> new ProjectGenerationException(
                         "Could not fetch the checksum of Gradle " + gradle + ". Try again, or choose " + template.gradle() + "."));
         return new ProjectVersions(java, springBoot, gradle, gradleSha256);
+    }
+
+    /** A typed Gradle version whose checksum can be fetched — the wrapper verifies the download against it. */
+    private String checksummed(String gradle, ProjectVersions template) {
+        if (!gradle.equals(template.gradle()) && releases.gradleSha256(gradle).isEmpty()) {
+            throw new IllegalArgumentException("Could not fetch the checksum of Gradle " + gradle
+                    + ". Enter another version, or press Enter for " + template.gradle() + ".");
+        }
+        return gradle;
+    }
+
+    /**
+     * The Java releases found online; the default, and why, in parentheses: the
+     * installed Java when the template builds on it, else the newest LTS.
+     */
+    private String chooseJava(Prompter prompter) {
+        List<Releases.Java> found = new ArrayList<>(releases.java());
+        Optional<Integer> installed = tools.javaVersion().map(SystemTools::javaMajor);
+        int newestLts = found.stream().filter(Releases.Java::lts).mapToInt(Releases.Java::feature).max()
+                .orElse(Integer.parseInt(Releases.JAVA_LTS.get(0)));
+        int latest = found.stream().mapToInt(Releases.Java::feature).max().orElse(newestLts);
+        int byDefault;
+        String why;
+        if (installed.filter(feature -> feature >= Releases.MIN_JAVA).isPresent()) {
+            byDefault = installed.get();
+            why = "installed";
+            if (found.stream().noneMatch(release -> release.feature() == installed.get())) {
+                found.add(new Releases.Java(byDefault, false));
+                found.sort(Comparator.comparingInt(Releases.Java::feature).reversed());
+            }
+        } else {
+            byDefault = newestLts;
+            why = installed.map(feature -> "Java " + feature + " installed is too old").orElse("no JDK installed");
+        }
+        List<Choice> choices = new ArrayList<>();
+        for (Releases.Java release : found) {
+            List<String> notes = new ArrayList<>();
+            if (release.lts()) {
+                notes.add("LTS");
+            } else if (release.feature() == latest) {
+                notes.add("latest");
+            }
+            if (release.feature() == byDefault) {
+                notes.add("default: " + why);
+            }
+            choices.add(choice(String.valueOf(release.feature()), notes));
+        }
+        return prompter.select("Java version", choices, String.valueOf(byDefault));
+    }
+
+    /** Versions newest first: the newest marked latest, the template's own marked as what the blueprint is built with. */
+    private static List<Choice> versionChoices(List<String> versions, String templateVersion) {
+        List<Choice> choices = new ArrayList<>();
+        for (String version : versions) {
+            List<String> notes = new ArrayList<>();
+            if (version.equals(versions.get(0)) && versions.size() > 1) {
+                notes.add("latest");
+            }
+            if (version.equals(templateVersion)) {
+                notes.add("the blueprint's");
+            }
+            choices.add(choice(version, notes));
+        }
+        return choices;
+    }
+
+    private static Choice choice(String id, List<String> notes) {
+        return notes.isEmpty() ? Choice.of(id, id) : Choice.of(id, id, String.join(", ", notes));
+    }
+
+    /** Both sample modules, users alone, or none; notifications alone is shown as coming — it needs users. */
+    private Set<String> chooseModules(Prompter prompter) {
+        String chosen;
+        if (modules != null) {
+            if (!List.of(BOTH, SampleModules.USERS, NONE).contains(modules)) {
+                throw new ParameterException(spec.commandLine(),
+                        "Unknown sample modules '" + modules + "': choose one of both, users, none.");
+            }
+            chosen = modules;
+        } else if (samples != null) {
+            chosen = samples ? BOTH : NONE;
+        } else {
+            chosen = prompter.select("Sample modules", List.of(
+                    Choice.of(BOTH, "Both", "users, and notifications reacting to its events"),
+                    Choice.of(SampleModules.USERS, "Users only", "the full reference slice"),
+                    new Choice(SampleModules.NOTIFICATIONS, "Notifications only", "soon: it builds on users", false),
+                    Choice.of(NONE, "None", "an empty project")), BOTH);
+        }
+        return switch (chosen) {
+            case BOTH -> Set.copyOf(SampleModules.ALL);
+            case NONE -> Set.of();
+            default -> Set.of(chosen);
+        };
+    }
+
+    /** The tests of which kept modules; asked only when modules are kept. */
+    private Set<String> chooseTests(Prompter prompter, Set<String> kept) {
+        if (kept.isEmpty()) {
+            return Set.of();
+        }
+        if (tests != null) {
+            return tests ? kept : Set.of();
+        }
+        List<String> names = inOrder(kept);
+        List<Choice> choices = new ArrayList<>();
+        if (names.size() > 1) {
+            choices.add(Choice.of(BOTH, "Both", "unit, web slice and module tests"));
+            names.forEach(module -> choices.add(Choice.of(module, capitalised(module) + " only")));
+        } else {
+            choices.add(Choice.of(names.get(0), capitalised(names.get(0)), "unit, web slice and module tests"));
+        }
+        choices.add(Choice.of(NONE, "None"));
+        String chosen = prompter.select("Sample modules' tests", choices, choices.get(0).id());
+        return switch (chosen) {
+            case BOTH -> kept;
+            case NONE -> Set.of();
+            default -> Set.of(chosen);
+        };
+    }
+
+    /**
+     * One stack of those listed exists so far — Prometheus with OpenTelemetry;
+     * the others are shown as coming. No answer keeps the template as it is: none.
+     */
+    private boolean chooseObservability(Prompter prompter) {
+        if (observability != null) {
+            return observability;
+        }
+        return prompter.pick("Observability", List.of(
+                Choice.of(NONE, "None"),
+                Choice.of(PROMETHEUS, "Prometheus + OpenTelemetry", "metrics at /actuator/prometheus, OTLP traces"),
+                Choice.soon("grafana-lgtm", "Grafana LGTM: Loki, Grafana, Tempo, Mimir"),
+                Choice.soon("elk", "ELK: Elasticsearch, Logstash, Kibana"),
+                Choice.soon("jaeger", "OpenTelemetry Collector + Jaeger")),
+                Extra.OBSERVABILITY.byDefault() ? PROMETHEUS : NONE).orElse(NONE).equals(PROMETHEUS);
+    }
+
+    /** Any of the three OWASP scans, as a checklist; none ticked to begin with. */
+    private Set<Scan> chooseScans(Prompter prompter) {
+        if (scans != null) {
+            return scans ? EnumSet.allOf(Scan.class) : Set.of();
+        }
+        List<Choice> choices = Arrays.stream(Scan.values()).map(Scan::choice).toList();
+        return prompter.pickAny("OWASP security scans in CI", choices, Set.of()).stream()
+                .map(Scan::of).collect(Collectors.toCollection(() -> EnumSet.noneOf(Scan.class)));
+    }
+
+    private static <T> List<Choice> choices(T[] values, Function<T, Choice> choice) {
+        return Arrays.stream(values).map(choice).toList();
+    }
+
+    /** The sample modules in the order the build names them. */
+    private static List<String> inOrder(Set<String> modules) {
+        return SampleModules.ALL.stream().filter(modules::contains).toList();
+    }
+
+    private static String capitalised(String word) {
+        return Character.toUpperCase(word.charAt(0)) + word.substring(1);
     }
 
     /** Reports Java, git and Gradle, and offers to install what is missing — never required to go on. */

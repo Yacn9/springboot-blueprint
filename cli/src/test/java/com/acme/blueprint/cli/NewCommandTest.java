@@ -200,7 +200,7 @@ class NewCommandTest {
 
         assertThat(run.exitCode()).isZero();
         assertThat(run.out()).contains("--parent-dir", "<dir>/<project-name>", "Examples:", "blueprint new my-shop",
-                "up to 40", "Exit codes: 0 project created, 1 could not create it, 2 bad command line.");
+                "up to 40", "Exit codes: 0 project created, 1 could not create it, 2 bad command line,", "130 cancelled");
     }
 
     @Test

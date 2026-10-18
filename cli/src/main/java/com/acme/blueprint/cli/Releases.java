@@ -6,6 +6,7 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
@@ -20,11 +21,14 @@ import java.util.regex.Pattern;
  */
 final class Releases {
 
-    /**
-     * Java LTS releases the template compiles on, newest first.
-     * ponytail: fixed list; add the next LTS (29, September 2027) once the template builds on it.
-     */
+    /** Java LTS releases the template compiles on, newest first: what is offered when Adoptium cannot be asked. */
     static final List<String> JAVA_LTS = List.of("25", "21");
+    /** The oldest Java the template's code compiles on. */
+    static final int MIN_JAVA = 21;
+
+    private static final String JAVA_RELEASES = "https://api.adoptium.net/v3/info/available_releases";
+    private static final Pattern JAVA_LTS_RELEASES = Pattern.compile("\"available_lts_releases\"\\s*:\\s*\\[([\\d,\\s]*)]");
+    private static final Pattern JAVA_LATEST = Pattern.compile("\"most_recent_feature_release\"\\s*:\\s*(\\d+)");
 
     private static final String SPRING_BOOT_METADATA =
             "https://repo1.maven.org/maven2/org/springframework/boot/spring-boot/maven-metadata.xml";
@@ -65,24 +69,77 @@ final class Releases {
         });
     }
 
-    /** Spring Boot releases of the template's major line, no older than the template's, newest first. */
-    List<String> springBoot(String templateVersion) {
-        List<String> found = new ArrayList<>();
-        fetch.apply(SPRING_BOOT_METADATA).ifPresent(metadata -> {
+    /** A Java feature release, and whether it is a long-term-support one. */
+    record Java(int feature, boolean lts) {
+    }
+
+    /**
+     * Java releases a project can build on, newest first: the most recent
+     * feature release and every LTS since {@link #MIN_JAVA}, as Adoptium lists
+     * them — or the known LTS releases when Adoptium cannot be asked.
+     */
+    List<Java> java() {
+        Optional<String> listing = fetch.apply(JAVA_RELEASES);
+        Optional<Matcher> lts = listing.map(JAVA_LTS_RELEASES::matcher).filter(Matcher::find);
+        Optional<Matcher> latest = listing.map(JAVA_LATEST::matcher).filter(Matcher::find);
+        if (lts.isEmpty() || latest.isEmpty()) {
+            return JAVA_LTS.stream().map(feature -> new Java(Integer.parseInt(feature), true)).toList();
+        }
+        List<Integer> ltsReleases = Arrays.stream(lts.get().group(1).split(","))
+                .map(String::strip).filter(feature -> !feature.isEmpty()).map(Integer::parseInt).toList();
+        int newest = Integer.parseInt(latest.get().group(1));
+        List<Java> releases = new ArrayList<>();
+        if (!ltsReleases.contains(newest)) {
+            releases.add(new Java(newest, false));
+        }
+        ltsReleases.stream().filter(feature -> feature >= MIN_JAVA).sorted(Comparator.reverseOrder())
+                .forEach(feature -> releases.add(new Java(feature, true)));
+        return releases;
+    }
+
+    /**
+     * Spring Boot releases of the template's major line, no older than the
+     * template's, newest first — empty when Maven Central cannot be asked.
+     */
+    Optional<List<String>> springBoot(String templateVersion) {
+        return fetch.apply(SPRING_BOOT_METADATA).map(metadata -> {
+            List<String> found = new ArrayList<>();
             Matcher match = RELEASE_VERSION.matcher(metadata);
             while (match.find()) {
                 found.add(match.group(1));
             }
+            return newestFirst(found, templateVersion);
         });
-        return newestFirst(found, templateVersion);
     }
 
-    /** The current Gradle release when it is of the template's major line and newer, then the template's. */
-    List<String> gradle(String templateVersion) {
-        List<String> found = new ArrayList<>();
-        fetch.apply(GRADLE_CURRENT).map(GRADLE_VERSION::matcher).filter(Matcher::find)
-                .ifPresent(match -> found.add(match.group(1)));
-        return newestFirst(found, templateVersion);
+    /**
+     * The current Gradle release when it is of the template's major line and
+     * newer, then the template's — empty when services.gradle.org cannot be asked.
+     */
+    Optional<List<String>> gradle(String templateVersion) {
+        return fetch.apply(GRADLE_CURRENT).map(current -> {
+            List<String> found = new ArrayList<>();
+            Matcher match = GRADLE_VERSION.matcher(current);
+            if (match.find()) {
+                found.add(match.group(1));
+            }
+            return newestFirst(found, templateVersion);
+        });
+    }
+
+    /**
+     * A version typed in place of a list: of the template's major line and no
+     * older than the template's.
+     *
+     * @throws IllegalArgumentException with what would do, when it is not
+     */
+    static String sameLine(String typed, String templateVersion, String what) {
+        if (!typed.matches("\\d+\\.\\d+(\\.\\d+)?") || major(typed) != major(templateVersion)
+                || compare(typed, templateVersion) < 0) {
+            throw new IllegalArgumentException("Enter %s %s or a newer %d.x release.".formatted(what, templateVersion,
+                    major(templateVersion)));
+        }
+        return typed;
     }
 
     /** The checksum Gradle publishes for a distribution; empty when it cannot be fetched. */
