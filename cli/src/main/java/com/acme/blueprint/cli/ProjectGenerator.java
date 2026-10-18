@@ -76,7 +76,8 @@ final class ProjectGenerator {
             files++;
         }
         for (Map.Entry<String, byte[]> added : overlay.entrySet()) {
-            if (!SampleModules.keeps(spec, added.getKey())) {
+            if (!SampleModules.keeps(spec, added.getKey())
+                    || !spec.has(Extra.COMPOSE) && added.getKey().equals(StorageProvider.SEAWEEDFS_CONFIG)) {
                 continue;
             }
             write(added.getKey(), added.getValue(), rules, spec, directory);
@@ -91,6 +92,7 @@ final class ProjectGenerator {
         List<String> overlays = new ArrayList<>(List.of(spec.database().overlay(), spec.cache().overlay()));
         SampleModules.overlay(spec).ifPresent(overlays::add);
         overlays.addAll(spec.broker().overlays());
+        overlays.addAll(spec.storage().overlays());
         overlays.addAll(spec.deploy().overlays());
         spec.extras().stream().filter(extra -> !extra.inTemplate()).map(Extra::overlay).forEach(overlays::add);
         if (!spec.scans().isEmpty()) {
@@ -130,6 +132,7 @@ final class ProjectGenerator {
                 .map(text -> spec.database().pin(source, text))
                 .map(text -> spec.cache().pin(source, text))
                 .map(text -> spec.broker().pin(source, text))
+                .map(text -> spec.storage().pin(source, text))
                 .map(text -> SampleModules.remove(spec, source, text))
                 .map(text -> Extras.pin(spec, source, text))
                 .map(text -> Scan.pin(spec.scans(), source, text))

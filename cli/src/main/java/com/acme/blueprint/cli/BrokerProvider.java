@@ -60,7 +60,7 @@ enum BrokerProvider {
                   - "15672"   # the management UI: `docker compose port rabbitmq 15672` shows where
             """);
 
-    private static final String SHARED_BUILD = "shared/build.gradle.kts";
+    static final String SHARED_BUILD = "shared/build.gradle.kts";
     private static final String TEST_DATABASE = "    \"testDatabaseImplementation\"(libs.database.testcontainers)\n";
     private static final String SHARED_WEB = "    implementation(\"org.springframework.boot:spring-boot-starter-webmvc\")\n";
     private static final String MODULITH_API = "    implementation(\"org.springframework.modulith:spring-modulith-api\")\n";

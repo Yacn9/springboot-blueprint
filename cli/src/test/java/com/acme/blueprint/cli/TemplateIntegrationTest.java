@@ -346,6 +346,71 @@ class TemplateIntegrationTest {
         assertThat(project.resolve("build.gradle.kts")).doesNotExist();
     }
 
+    /** MinIO with the app in compose: the S3 client and ObjectStore, its test, container, settings and service. */
+    @Test
+    void generatesObjectStorage(@TempDir Path work) throws IOException {
+        Path project = generate(ProjectSpec.defaultsFor(ProjectName.fromUserInput("file-shop"))
+                .withStorage(StorageProvider.MINIO).withDeploy(Deployment.DOCKER), work, realReadme());
+
+        assertThat(Files.readString(project.resolve("gradle/libs.versions.toml"), UTF_8))
+                .contains("storage-s3 = { module = \"software.amazon.awssdk:s3\", version = \"");
+        assertThat(Files.readString(project.resolve("shared/build.gradle.kts"), UTF_8)).contains("implementation(libs.storage.s3)");
+        assertThat(Files.readString(project.resolve("app/build.gradle.kts"), UTF_8)).contains("testImplementation(project(\":shared\"))");
+        assertThat(project.resolve("shared/src/main/java/com/fileshop/shared/storage/ObjectStore.java")).exists();
+        assertThat(Files.readString(project.resolve("shared/src/main/java/com/fileshop/shared/storage/ObjectStorageConfiguration.java"), UTF_8))
+                .contains("${fileshop.storage.endpoint}", "forcePathStyle(true)");
+        assertThat(project.resolve("app/src/test/java/com/fileshop/ObjectStoreTests.java")).exists();
+        assertThat(Files.readString(project.resolve("shared/src/testDatabase/java/com/fileshop/shared/testing/StorageTestcontainers.java"), UTF_8))
+                .contains("pgsty/minio:", "\"fileshop-storage\"", "\"fileshop-storage-secret\"");
+        assertThat(Files.readString(project.resolve("shared/src/testDatabase/java/com/fileshop/shared/testing/DatabaseTestcontainers.java"), UTF_8))
+                .contains("StorageTestcontainers.class");
+        assertThat(Files.readString(project.resolve("shared/src/main/resources/config/fileshop-platform.yml"), UTF_8))
+                .contains("\nfileshop:\n  # Object storage", "    endpoint: http://localhost:9000", "    access-key: fileshop-storage",
+                        "    bucket: fileshop-files");
+        assertThat(Files.readString(project.resolve("compose.yaml"), UTF_8)).contains(
+                "  minio:\n", "MINIO_ROOT_USER: fileshop-storage", "\"9000:9000\"",
+                "FILESHOP_STORAGE_ENDPOINT: http://minio:9000", "      - minio");
+        assertThat(Files.readString(project.resolve("README.md"), UTF_8)).contains("## Object storage", "`FILESHOP_STORAGE_ENDPOINT`");
+        assertThat(project.resolve("seaweedfs-s3.json")).doesNotExist();
+    }
+
+    /** SeaweedFS next to Memcached: one settings root for both adapters, and the identities file compose mounts. */
+    @Test
+    void generatesSeaweedFsBesideMemcached(@TempDir Path work) throws IOException {
+        Path project = generate(ProjectSpec.defaultsFor(ProjectName.fromUserInput("weed-shop"))
+                .withCache(CacheProvider.MEMCACHED).withStorage(StorageProvider.SEAWEEDFS), work);
+
+        String platform = Files.readString(project.resolve("shared/src/main/resources/config/weedshop-platform.yml"), UTF_8);
+        assertThat(platform.lines().filter(line -> line.equals("weedshop:"))).hasSize(1);
+        assertThat(platform).contains("  storage:\n    endpoint: http://localhost:8333", "  cache:\n    memcached:");
+        assertThat(Files.readString(project.resolve("seaweedfs-s3.json"), UTF_8))
+                .contains("\"accessKey\": \"weedshop-storage\"", "\"secretKey\": \"weedshop-storage-secret\"");
+        assertThat(Files.readString(project.resolve("compose.yaml"), UTF_8))
+                .contains("  seaweedfs:\n", "-s3.config=/etc/seaweedfs/s3.json", "./seaweedfs-s3.json:/etc/seaweedfs/s3.json:ro");
+        assertThat(Files.readString(project.resolve("shared/src/testDatabase/java/com/weedshop/shared/testing/StorageTestcontainers.java"), UTF_8))
+                .contains("chrislusf/seaweedfs:", "\"weedshop-storage\"");
+    }
+
+    /** RustFS without compose: its test container still, no compose file to mount anything into. */
+    @Test
+    void generatesRustFsWithoutCompose(@TempDir Path work) throws IOException {
+        Path project = generate(ProjectSpec.defaultsFor(ProjectName.fromUserInput("rust-shop"))
+                .withStorage(StorageProvider.RUSTFS).withExtras(java.util.Set.of()), work);
+
+        assertThat(project.resolve("compose.yaml")).doesNotExist();
+        assertThat(Files.readString(project.resolve("shared/src/testDatabase/java/com/rustshop/shared/testing/StorageTestcontainers.java"), UTF_8))
+                .contains("rustfs/rustfs:", "RUSTFS_ACCESS_KEY");
+    }
+
+    /** Without storage: the placeholder test configuration, and no S3 anywhere. */
+    @Test
+    void generatesNoObjectStorageByDefault() throws IOException {
+        assertThat(Files.readString(project.resolve("shared/src/testDatabase/java/com/myshop/shared/testing/StorageTestcontainers.java"), UTF_8))
+                .contains("None here");
+        assertThat(project.resolve("shared/src/main/java/com/myshop/shared/storage")).doesNotExist();
+        assertThat(Files.readString(project.resolve("gradle/libs.versions.toml"), UTF_8)).doesNotContain("awssdk");
+    }
+
     /** Without compose: no compose.yaml, no docker-compose support, a README that says how to point at a database. */
     @Test
     void generatesAProjectWithoutCompose(@TempDir Path work) throws IOException {

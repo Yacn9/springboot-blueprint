@@ -63,6 +63,11 @@ final class NewCommand implements Callable<Integer> {
             description = "none, kafka, redpanda or rabbitmq: where the modules' events are also published. Asked for when left out.")
     private String broker;
 
+    @Option(names = "--storage", paramLabel = "<storage>",
+            description = "none, minio, seaweedfs or rustfs: S3-compatible object storage behind shared's ObjectStore. "
+                    + "Asked for when left out.")
+    private String storage;
+
     @Option(names = "--samples", negatable = true,
             description = "Keep both sample modules (users, notifications), or start without (--no-samples). Asked for when left out.")
     private Boolean samples;
@@ -153,6 +158,7 @@ final class NewCommand implements Callable<Integer> {
                             : CacheProvider.of(prompter.select("Cache", choices(CacheProvider.values(), CacheProvider::choice), CacheProvider.NONE.id())))
                     .withBroker(broker != null ? brokerFromOption()
                             : BrokerProvider.of(prompter.select("Message broker", choices(BrokerProvider.values(), BrokerProvider::choice), BrokerProvider.NONE.id())))
+                    .withStorage(storage != null ? storageFromOption() : chooseStorage(prompter))
                     .withModules(chooseModules(prompter));
             project = project.withTests(chooseTests(prompter, project.modules()));
             Set<Extra> extras = EnumSet.noneOf(Extra.class);
@@ -221,6 +227,7 @@ final class NewCommand implements Callable<Integer> {
         parts.add(project.database().displayName());
         parts.add("cache " + project.cache().id());
         parts.add("broker " + project.broker().id());
+        parts.add("storage " + project.storage().id());
         parts.add(project.samples() ? "sample modules " + String.join(", ", inOrder(project.modules())) : "no sample modules");
         if (project.samples()) {
             parts.add(project.testedModules().isEmpty() ? "no tests" : "tests of " + String.join(", ", inOrder(project.testedModules())));
@@ -245,6 +252,23 @@ final class NewCommand implements Callable<Integer> {
                     "Unknown deployment '" + deploy + "': choose one of " + String.join(", ", Deployment.ids()) + ".");
         }
         return Deployment.of(deploy);
+    }
+
+    private StorageProvider storageFromOption() {
+        if (!StorageProvider.ids().contains(storage)) {
+            throw new ParameterException(spec.commandLine(),
+                    "Unknown storage '" + storage + "': choose one of " + String.join(", ", StorageProvider.ids()) + ".");
+        }
+        return StorageProvider.of(storage);
+    }
+
+    /** The S3-compatible servers there are; Garage and Ceph are shown as coming. */
+    private static StorageProvider chooseStorage(Prompter prompter) {
+        List<Choice> choices = new ArrayList<>(choices(StorageProvider.values(), StorageProvider::choice));
+        // Garage sets up its layout and keys by commands its image has no shell to run; Ceph has no image fit for compose.
+        choices.add(Choice.soon("garage", "Garage"));
+        choices.add(Choice.soon("ceph", "Ceph (RADOS Gateway)"));
+        return StorageProvider.of(prompter.select("Object storage", choices, StorageProvider.NONE.id()));
     }
 
     private BrokerProvider brokerFromOption() {
@@ -505,7 +529,8 @@ final class NewCommand implements Callable<Integer> {
         out.println(style.ok(style.bold("Created " + project.artifact()) + " in %s (%d files, base package %s, %s, cache: %s)."
                 .formatted(generated.directory(), generated.fileCount(), project.basePackage(),
                         project.database().displayName(), project.cache().id())
-                        + (project.broker() != BrokerProvider.NONE ? " Events also go to " + project.broker().id() + "." : "")));
+                        + (project.broker() != BrokerProvider.NONE ? " Events also go to " + project.broker().id() + "." : "")
+                        + (project.storage() != StorageProvider.NONE ? " Files go to " + project.storage().id() + "." : "")));
         out.println();
         out.println(style.bold("Next steps:"));
         out.println("  " + style.cyan("cd " + whereToEnter(project, generated)));
