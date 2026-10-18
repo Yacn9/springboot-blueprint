@@ -137,6 +137,7 @@ class TemplateIntegrationTest {
         assertThat(project.resolve("cli")).doesNotExist();
         assertThat(project.resolve("install.sh")).doesNotExist();
         assertThat(project.resolve("jbang-catalog.json")).doesNotExist();
+        assertThat(project.resolve("qodana.yaml")).doesNotExist();
         assertThat(project.resolve("overlays")).doesNotExist();
         assertThat(project.resolve(".github")).doesNotExist();
         assertThat(project.resolve(".git")).doesNotExist();
