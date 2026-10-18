@@ -20,6 +20,7 @@ coming but not there yet is shown greyed out, with *(soon)*.
 ? Database: PostgreSQL
 ? Cache: Redis
 ? Message broker: Kafka
+? Object storage: SeaweedFS
 ? Sample modules: Both
 ? Sample modules' tests: Both
 ? Docker Compose for the local database and cache (bootRun starts it)? [Y/n]:
@@ -54,6 +55,7 @@ cd order-hub
 | Database | PostgreSQL, or Oracle 23ai (one Oracle user per module) | PostgreSQL |
 | Cache | none, in memory (Caffeine), Redis, or Memcached | none |
 | Message broker | none, Kafka, Redpanda or RabbitMQ — the modules' events are published there too, after commit | none |
+| Object storage | none, MinIO (Pigsty's rebuild — MinIO publishes no images since 2025), SeaweedFS or RustFS, behind one S3 `ObjectStore` in `:shared` (Garage and Ceph coming) | none |
 | Sample modules | both (`users` and `notifications`), `users` alone, or an empty project — then whose tests | both, with tests |
 | Docker Compose | the local database and cache, started by `bootRun` | yes |
 | Deploy | none, Docker (Dockerfile + the app in compose), or Kubernetes (plus a Helm chart) | none |

@@ -45,6 +45,10 @@ jobs:
           - { database: postgresql, cache: memory, flags: --broker rabbitmq --deploy docker --scans }
           - { database: oracle, cache: memcached, flags: --deploy docker --security }
           - { database: postgresql, cache: none, flags: --deploy docker --no-compose }
+          # Each object storage server; the first two also run in the full stack, behind the app.
+          - { database: postgresql, cache: none, flags: --storage minio --deploy docker }
+          - { database: postgresql, cache: memcached, flags: --storage seaweedfs --deploy docker }
+          - { database: postgresql, cache: none, flags: --storage rustfs }
     runs-on: ubuntu-latest
     defaults:
       run:
