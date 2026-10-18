@@ -9,12 +9,29 @@ on:
   pull_request:
 
 jobs:
+  # The CLI's own tests — prompts, menus, generation from the real template —
+  # on the oldest Java the release is built with.
+  cli:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Test the CLI
+        run: |
+          chmod +x gradlew
+          ./gradlew -p cli build --console=plain
+
   generated-project:
     strategy:
       fail-fast: false
       matrix:
-        # Each database once without a cache, each cache server on PostgreSQL, and a
-        # project that starts without the sample modules.
+        # Each database once without a cache, each cache server on PostgreSQL, a
+        # project that starts without the sample modules, and one with users alone.
         include:
           - { database: postgresql, cache: none }
           - { database: oracle, cache: none }
@@ -22,6 +39,7 @@ jobs:
           - { database: postgresql, cache: redis }
           - { database: postgresql, cache: memcached }
           - { database: oracle, cache: redis, flags: --no-samples }
+          - { database: oracle, cache: none, flags: --modules users }
           - { database: postgresql, cache: redis, flags: --broker kafka --deploy kubernetes --ci --security --observability --dependabot }
           - { database: postgresql, cache: none, flags: --broker redpanda --deploy docker }
           - { database: postgresql, cache: memory, flags: --broker rabbitmq --deploy docker --scans }
