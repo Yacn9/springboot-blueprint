@@ -8,24 +8,27 @@ Like `npm create vite` for Spring Boot. A few questions, then a complete,
 building project: one deployable, many isolated business modules, with the
 module boundaries enforced by the build itself — not by good intentions.
 
+Lists are menus: ↑/↓ to move, Enter to pick — Space ticks the scans. What is
+coming but not there yet is shown greyed out, with *(soon)*.
+
 ```text
 ? Project name (for example my-shop): order-hub
-? Use the default setup? (no: choose each setting) [Y/n]: n
-? Java version (LTS) (25 / 21) [25]:
+? How do you want to set up the project? Custom
+? Java version: 25
 ? Spring Boot version: 4.1.1
 ? Gradle version: 9.8.1
-? Database (postgresql / oracle) [postgresql]:
-? Cache (none / memory / redis / memcached) [none]: redis
-? Message broker (none / kafka / redpanda / rabbitmq) [none]: kafka
-? Include the sample modules (users, notifications)? [Y/n]:
-? Include the sample modules' tests (unit, web slice and module tests)? [Y/n]:
+? Database: PostgreSQL
+? Cache: Redis
+? Message broker: Kafka
+? Sample modules: Both
+? Sample modules' tests: Both
 ? Docker Compose for the local database and cache (bootRun starts it)? [Y/n]:
-? Deploy (none / docker / kubernetes) [none]: kubernetes
+? Deploy: Kubernetes
 ? A GitHub Actions workflow that builds and tests every push? [Y/n]:
 ? Secure the API with JWTs (OAuth2 resource server)? [y/N]: y
-? Observability: Prometheus metrics and OpenTelemetry tracing? [Y/n]:
+? Observability: Prometheus + OpenTelemetry
 ? Dependabot for dependency updates? [Y/n]:
-? OWASP security scans in CI: ZAP (DAST), CodeQL (SAST), Dependency-Check (SCA)? [y/N]:
+? OWASP security scans in CI: CodeQL, ZAP baseline
 ? Initialize a git repository with a first commit? [Y/n]:
 
 Checking tools:
@@ -46,19 +49,23 @@ cd order-hub
 
 | | Choices | Default |
 | --- | --- | --- |
-| Java | LTS 25 or 21 | 25 |
-| Spring Boot, Gradle | the newest release of the template's line, looked up live | newest |
+| Java | the newest release and every LTS from 21, listed live by Adoptium (25 and 21 offline) | the installed one; else the newest LTS |
+| Spring Boot, Gradle | the newest release of the template's line, looked up live — typed when it cannot be | newest |
 | Database | PostgreSQL, or Oracle 23ai (one Oracle user per module) | PostgreSQL |
 | Cache | none, in memory (Caffeine), Redis, or Memcached | none |
 | Message broker | none, Kafka, Redpanda or RabbitMQ — the modules' events are published there too, after commit | none |
-| Sample modules | `users` and `notifications` — and their tests — or an empty project | keep |
+| Sample modules | both (`users` and `notifications`), `users` alone, or an empty project — then whose tests | both, with tests |
 | Docker Compose | the local database and cache, started by `bootRun` | yes |
 | Deploy | none, Docker (Dockerfile + the app in compose), or Kubernetes (plus a Helm chart) | none |
-| Extras | GitHub Actions CI · JWT security · Prometheus + OpenTelemetry · Dependabot · OWASP scans (ZAP, CodeQL, Dependency-Check) | CI, observability, Dependabot |
+| Observability | none, or Prometheus + OpenTelemetry (Grafana LGTM, ELK and Jaeger coming) | Prometheus + OpenTelemetry |
+| OWASP scans | any of CodeQL (SAST), Dependency-Check (SCA) and ZAP baseline (DAST) | none |
+| Extras | GitHub Actions CI · JWT security · Dependabot | CI, Dependabot |
 | Git | `git init` on `main` with *Initial commit from blueprint new* | yes |
 
-Answer yes to *Use the default setup?* (or pass `--defaults`) and nothing else is asked:
-every choice takes its default. Every question also has a flag, so scripts and CI need no prompts:
+Pick *Default* at the first question (or pass `--defaults`) and nothing else is asked:
+every choice takes its default. Most questions also have a flag (`--modules users`,
+`--scans`, `--no-observability`, …), and piped input is read as typed answers, so
+scripts and CI need no menus:
 
 ```bash
 curl -fsSL …/install.sh | sh -s -- order-hub --database oracle --cache redis --deploy kubernetes --security --no-git
