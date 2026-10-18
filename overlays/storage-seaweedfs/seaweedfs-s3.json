@@ -1,0 +1,9 @@
+{
+  "identities": [
+    {
+      "name": "blueprint",
+      "credentials": [{ "accessKey": "blueprint-storage", "secretKey": "blueprint-storage-secret" }],
+      "actions": ["Admin", "Read", "Write", "List", "Tagging"]
+    }
+  ]
+}
