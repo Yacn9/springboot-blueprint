@@ -35,6 +35,15 @@ enum Deployment {
         return id;
     }
 
+    /** As the menu shows it. */
+    Choice choice() {
+        return switch (this) {
+            case NONE -> Choice.of(id, "None");
+            case DOCKER -> Choice.of(id, "Docker", "a Dockerfile, and the app in compose");
+            case KUBERNETES -> Choice.of(id, "Kubernetes", "Docker plus a Helm chart");
+        };
+    }
+
     boolean containerised() {
         return this != NONE;
     }

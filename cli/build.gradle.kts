@@ -10,6 +10,10 @@ version = "0.0.3"
 
 dependencies {
     implementation("info.picocli:picocli:4.7.7")
+    // Arrow-key menus: raw key presses and line editing on every terminal, Windows' console included (JNI).
+    implementation("org.jline:jline-terminal:3.30.6")
+    implementation("org.jline:jline-terminal-jni:3.30.6")
+    implementation("org.jline:jline-reader:3.30.6")
 
     testImplementation(platform("org.junit:junit-bom:6.0.3"))
     testImplementation("org.junit.jupiter:junit-jupiter")
@@ -93,13 +97,15 @@ val templateArchive = tasks.register("templateArchive") {
     }
 }
 
-// --- One runnable jar: the CLI, picocli and the template --------------------
+// --- One runnable jar: the CLI, picocli, JLine and the template -------------
 
 tasks.jar {
     archiveBaseName = "blueprint-cli"
     dependsOn(templateArchive)
     manifest {
-        attributes("Main-Class" to application.mainClass, "Implementation-Version" to project.version)
+        // Enable-Native-Access: JLine's Windows console support loads a native library, which Java 24+ warns about otherwise.
+        attributes("Main-Class" to application.mainClass, "Implementation-Version" to project.version,
+            "Enable-Native-Access" to "ALL-UNNAMED")
     }
     from(templateArchive) { into("template") }
     from({ configurations.runtimeClasspath.get().map { if (it.isDirectory) it else zipTree(it) } })

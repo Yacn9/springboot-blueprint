@@ -36,6 +36,11 @@ final class Style {
         }
     }
 
+    /** Whether this is an interactive terminal, where colours — and menus — work. */
+    boolean interactive() {
+        return ansi;
+    }
+
     String bold(String text) {
         return paint("1", text);
     }

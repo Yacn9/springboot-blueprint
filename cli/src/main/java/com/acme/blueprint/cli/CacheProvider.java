@@ -88,6 +88,16 @@ enum CacheProvider {
         return id;
     }
 
+    /** As the menu shows it. */
+    Choice choice() {
+        return switch (this) {
+            case NONE -> Choice.of(id, "None");
+            case MEMORY -> Choice.of(id, "In memory", "Caffeine, inside the application");
+            case REDIS -> Choice.of(id, "Redis");
+            case MEMCACHED -> Choice.of(id, "Memcached");
+        };
+    }
+
     /** Where this provider's overlay lives in the template archive: {@code overlays/cache-redis/}. */
     String overlay() {
         return Database.OVERLAYS + "cache-" + id + "/";

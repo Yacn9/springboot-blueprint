@@ -98,6 +98,16 @@ enum BrokerProvider {
         return id;
     }
 
+    /** As the menu shows it. */
+    Choice choice() {
+        return switch (this) {
+            case NONE -> Choice.of(id, "None", "events stay inside the application");
+            case KAFKA -> Choice.of(id, "Kafka");
+            case REDPANDA -> Choice.of(id, "Redpanda", "Kafka-compatible, one binary");
+            case RABBITMQ -> Choice.of(id, "RabbitMQ");
+        };
+    }
+
     List<String> overlays() {
         return overlays.stream().map(name -> Database.OVERLAYS + name + "/").toList();
     }
